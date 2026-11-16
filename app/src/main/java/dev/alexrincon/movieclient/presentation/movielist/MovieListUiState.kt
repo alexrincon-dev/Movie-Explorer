@@ -14,4 +14,8 @@ data class MovieListUiState(
     val isLoadingMore: Boolean = false,
     val canLoadMore: Boolean = false,
     val error: MovieError? = null,
-)
+    val isPaginationError: Boolean = false,
+) {
+    val retriesFailedPage: Boolean
+        get() = movies.isNotEmpty() && isPaginationError
+}

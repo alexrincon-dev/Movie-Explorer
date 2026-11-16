@@ -5,4 +5,21 @@
     <string name="movie_detail_placeholder_title">Detalle de la película</string>
     <string name="movie_detail_placeholder_movie_id">Id. de la película: %1$d</string>
     <string name="movie_detail_placeholder_back">Atrás</string>
+    <string name="movie_list_popular">Populares</string>
+    <string name="movie_list_top_rated">Mejor valoradas</string>
+    <string name="language_action">Idioma del contenido: %1$s</string>
+    <string name="language_english">Inglés</string>
+    <string name="language_spanish">Español</string>
+    <string name="language_english_code">EN</string>
+    <string name="language_spanish_code">ES</string>
+    <string name="movie_poster_content_description">Póster de %1$s</string>
+    <string name="movie_list_loading">Cargando películas</string>
+    <string name="movie_list_empty">No hay películas para mostrar.</string>
+    <string name="movie_list_retry">Reintentar</string>
+    <string name="movie_list_error_network">Sin conexión a internet. Comprueba tu conexión e inténtalo de nuevo.</string>
+    <string name="movie_list_error_server">El servicio de películas no está disponible. Inténtalo más tarde.</string>
+    <string name="movie_list_error_rate_limited">Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.</string>
+    <string name="movie_list_error_not_found">No se encontraron estas películas.</string>
+    <string name="movie_list_error_invalid_response">No se pudieron leer los datos de las películas.</string>
+    <string name="movie_list_error_unknown">Algo salió mal. Inténtalo de nuevo.</string>
 </resources>

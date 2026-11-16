@@ -79,6 +79,7 @@ class MovieListViewModel @Inject constructor(
                     isRefreshing = true,
                     isLoadingMore = false,
                     error = null,
+                    isPaginationError = false,
                 )
             }
             else -> {
@@ -87,6 +88,7 @@ class MovieListViewModel @Inject constructor(
                     isRefreshing = false,
                     isLoadingMore = false,
                     error = null,
+                    isPaginationError = false,
                 )
                 ensureInitialRefresh(listType)
             }
@@ -107,7 +109,11 @@ class MovieListViewModel @Inject constructor(
         val language = contentLanguageState.contentLanguage.value
         loadMoreJob = viewModelScope.launch {
             if (selectedListType.value == listType) {
-                status.value = status.value.copy(isLoadingMore = true, error = null)
+                status.value = status.value.copy(
+                    isLoadingMore = true,
+                    error = null,
+                    isPaginationError = false,
+                )
             }
             try {
                 loadMoreMovies(listType, language)
@@ -115,7 +121,10 @@ class MovieListViewModel @Inject constructor(
                 throw cancellation
             } catch (exception: MovieException) {
                 if (selectedListType.value == listType && !languageChangeInFlight) {
-                    status.value = status.value.copy(error = exception.error)
+                    status.value = status.value.copy(
+                        error = exception.error,
+                        isPaginationError = true,
+                    )
                 }
             } finally {
                 loadMoreInFlight = false
@@ -143,6 +152,7 @@ class MovieListViewModel @Inject constructor(
                     isRefreshing = true,
                     isLoadingMore = false,
                     error = null,
+                    isPaginationError = false,
                 )
                 movieRepository.refreshAllMovies(language)
                 contentLanguageState.updateContentLanguage(language)
@@ -155,6 +165,7 @@ class MovieListViewModel @Inject constructor(
                     isInitialLoading = false,
                     isRefreshing = false,
                     error = exception.error,
+                    isPaginationError = false,
                 )
             } finally {
                 languageChangeInFlight = false
@@ -183,6 +194,7 @@ class MovieListViewModel @Inject constructor(
                     isRefreshing = true,
                     isLoadingMore = false,
                     error = null,
+                    isPaginationError = false,
                 )
             }
             try {
@@ -199,6 +211,7 @@ class MovieListViewModel @Inject constructor(
                         isInitialLoading = false,
                         isRefreshing = false,
                         error = exception.error,
+                        isPaginationError = false,
                     )
                 }
             }
@@ -218,6 +231,7 @@ class MovieListViewModel @Inject constructor(
         val isRefreshing: Boolean = false,
         val isLoadingMore: Boolean = false,
         val error: MovieError? = null,
+        val isPaginationError: Boolean = false,
     )
 
     private fun ListStatus.toUiState(
@@ -235,6 +249,7 @@ class MovieListViewModel @Inject constructor(
             isLoadingMore = isLoadingMore,
             canLoadMore = snapshot.canLoadMore,
             error = error,
+            isPaginationError = isPaginationError && error != null,
         )
     }
 }

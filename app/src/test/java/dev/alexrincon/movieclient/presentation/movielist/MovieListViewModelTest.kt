@@ -187,7 +187,8 @@ class MovieListViewModelTest {
     @Test
     fun refreshFailureKeepsCachedMoviesAndExposesMovieError() = runViewModelTest {
         val cached = listOf(testMovie(3))
-        repository.listSnapshots.getValue(MovieListType.POPULAR).value = testSnapshot(cached)
+        repository.listSnapshots.getValue(MovieListType.POPULAR).value =
+            testSnapshot(cached, lastLoadedPage = 1, totalPages = 3)
         val viewModel = viewModel()
         advanceUntilIdle()
         repository.refreshError = MovieException(MovieError.Server)
@@ -197,6 +198,9 @@ class MovieListViewModelTest {
 
         assertEquals(MovieError.Server, viewModel.uiState.value.error)
         assertEquals(cached, viewModel.uiState.value.movies)
+        assertTrue(viewModel.uiState.value.canLoadMore)
+        assertFalse(viewModel.uiState.value.isPaginationError)
+        assertFalse(viewModel.uiState.value.retriesFailedPage)
         assertFalse(viewModel.uiState.value.isRefreshing)
         assertFalse(viewModel.uiState.value.isInitialLoading)
     }
@@ -216,6 +220,59 @@ class MovieListViewModelTest {
         assertEquals(MovieError.RateLimited, viewModel.uiState.value.error)
         assertEquals(cached, viewModel.uiState.value.movies)
         assertFalse(viewModel.uiState.value.isLoadingMore)
+        assertTrue(viewModel.uiState.value.isPaginationError)
+        assertTrue(viewModel.uiState.value.retriesFailedPage)
+
+        val refreshesAfterFailure = repository.refreshCalls.size
+        repository.loadMoreError = null
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertEquals(refreshesAfterFailure, repository.refreshCalls.size)
+        assertEquals(2, repository.loadMoreCalls.size)
+        assertNull(viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.isPaginationError)
+        assertEquals(cached, viewModel.uiState.value.movies)
+    }
+
+    @Test
+    fun initialLoadFailureRetriesAsRefresh() = runViewModelTest {
+        repository.refreshError = MovieException(MovieError.Network)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.movies.isEmpty())
+        assertEquals(MovieError.Network, viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.isInitialLoading)
+        assertFalse(viewModel.uiState.value.isRefreshing)
+        assertFalse(viewModel.uiState.value.isPaginationError)
+        assertFalse(viewModel.uiState.value.retriesFailedPage)
+        assertTrue(repository.loadMoreCalls.isEmpty())
+    }
+
+    @Test
+    fun retryChoiceStaysWithRefreshUnlessTheVisibleErrorCameFromPagination() {
+        val cached = listOf(testMovie(1))
+        assertFalse(
+            MovieListUiState(
+                error = MovieError.Network,
+            ).retriesFailedPage,
+        )
+        assertFalse(
+            MovieListUiState(
+                movies = cached,
+                canLoadMore = true,
+                error = MovieError.Server,
+            ).retriesFailedPage,
+        )
+        assertTrue(
+            MovieListUiState(
+                movies = cached,
+                canLoadMore = true,
+                error = MovieError.RateLimited,
+                isPaginationError = true,
+            ).retriesFailedPage,
+        )
     }
 
     @Test
