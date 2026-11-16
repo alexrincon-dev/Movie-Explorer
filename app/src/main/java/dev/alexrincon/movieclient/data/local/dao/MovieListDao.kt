@@ -13,6 +13,12 @@ abstract class MovieListDao {
     @Query("DELETE FROM movie_lists WHERE listType = :listType")
     abstract suspend fun deleteByListType(listType: MovieListType)
 
+    @Query("SELECT COALESCE(MAX(sortOrder), -1) FROM movie_lists WHERE listType = :listType")
+    abstract suspend fun maxSortOrder(listType: MovieListType): Int
+
+    @Query("SELECT movieId FROM movie_lists WHERE listType = :listType")
+    abstract suspend fun movieIds(listType: MovieListType): List<Int>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     abstract suspend fun append(entries: List<MovieListEntity>)
 

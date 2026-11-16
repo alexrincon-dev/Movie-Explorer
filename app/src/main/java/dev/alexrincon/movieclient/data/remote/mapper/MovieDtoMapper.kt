@@ -12,6 +12,6 @@ fun MovieDto.toMovie(imageUrls: TmdbImageUrlBuilder): Movie {
         posterPath = imageUrls.posterUrl(posterPath),
         backdropPath = imageUrls.backdropUrl(backdropPath),
         releaseDate = releaseDate?.takeIf { it.isNotBlank() },
-        voteAverage = voteAverage,
+        voteAverage = voteAverage ?: 0.0,
     )
 }
