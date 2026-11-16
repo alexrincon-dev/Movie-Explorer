@@ -9,7 +9,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.alexrincon.movieclient.R
 
 @Composable
 fun MovieDetailPlaceholder(
@@ -24,12 +26,17 @@ fun MovieDetailPlaceholder(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            text = "Movie detail",
-            style = MaterialTheme.typography.headlineSmall,
+            text = stringResource(R.string.movie_detail_placeholder_title),
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.primary,
         )
-        Text(text = "Movie id: $movieId")
+        Text(
+            text = stringResource(R.string.movie_detail_placeholder_movie_id, movieId),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Button(onClick = onBack) {
-            Text(text = "Back")
+            Text(text = stringResource(R.string.movie_detail_placeholder_back))
         }
     }
 }
