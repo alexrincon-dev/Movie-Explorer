@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MovieClient"
+rootProject.name = "MovieExplorer"
 include(":app")
  
