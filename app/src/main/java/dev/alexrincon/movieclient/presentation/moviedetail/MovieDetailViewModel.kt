@@ -13,6 +13,7 @@ import dev.alexrincon.movieclient.presentation.language.MovieContentLanguageStat
 import dev.alexrincon.movieclient.presentation.navigation.MovieDetailRoute
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,6 +32,7 @@ class MovieDetailViewModel @Inject constructor(
     private val movieId: Int = savedStateHandle.toRoute<MovieDetailRoute>().movieId
     private val loading = MutableStateFlow(true)
     private val error = MutableStateFlow<MovieError?>(null)
+    private var retryJob: Job? = null
 
     val uiState: StateFlow<MovieDetailUiState> = combine(
         movieRepository.observeMovie(movieId),
@@ -53,6 +55,13 @@ class MovieDetailViewModel @Inject constructor(
             contentLanguageState.contentLanguage.collectLatest { language ->
                 refreshDetail(language)
             }
+        }
+    }
+
+    fun retry() {
+        if (retryJob?.isActive == true) return
+        retryJob = viewModelScope.launch {
+            refreshDetail(contentLanguageState.contentLanguage.value)
         }
     }
 

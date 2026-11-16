@@ -1,13 +1,12 @@
 package dev.alexrincon.movieclient.presentation.navigation
 
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.toRoute
+import dev.alexrincon.movieclient.presentation.moviedetail.MovieDetailScreen
 import dev.alexrincon.movieclient.presentation.movielist.MovieListScreen
 
 @Composable
@@ -28,12 +27,9 @@ fun MovieNavHost(
                 },
             )
         }
-        composable<MovieDetailRoute> { backStackEntry ->
-            val route = backStackEntry.toRoute<MovieDetailRoute>()
-            MovieDetailPlaceholder(
-                movieId = route.movieId,
+        composable<MovieDetailRoute> {
+            MovieDetailScreen(
                 onBack = { navController.popBackStack() },
-                modifier = Modifier.safeDrawingPadding(),
             )
         }
     }

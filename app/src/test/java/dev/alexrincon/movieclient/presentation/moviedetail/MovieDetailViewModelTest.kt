@@ -87,6 +87,53 @@ class MovieDetailViewModelTest {
         assertFalse(viewModel.uiState.value.isLoading)
     }
 
+    @Test
+    fun retryRefreshesTheSameMovieAfterFailure() = runViewModelTest {
+        repository.detailError = MovieException(MovieError.Network)
+        val viewModel = viewModel(movieId = 4)
+
+        advanceUntilIdle()
+
+        assertEquals(MovieError.Network, viewModel.uiState.value.error)
+        assertEquals(
+            listOf(DetailRequest(movieId = 4, language = MovieContentLanguage.EN_US)),
+            repository.detailRefreshCalls,
+        )
+
+        repository.detailError = null
+        viewModel.retry()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                DetailRequest(movieId = 4, language = MovieContentLanguage.EN_US),
+                DetailRequest(movieId = 4, language = MovieContentLanguage.EN_US),
+            ),
+            repository.detailRefreshCalls,
+        )
+        assertNull(viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun retryIgnoresASecondCallWhileTheRefreshIsRunning() = runViewModelTest {
+        repository.detailError = MovieException(MovieError.Network)
+        val viewModel = viewModel(movieId = 4)
+        advanceUntilIdle()
+
+        repository.detailError = null
+        repository.detailGate = CompletableDeferred()
+        viewModel.retry()
+        viewModel.retry()
+        advanceUntilIdle()
+
+        assertEquals(2, repository.detailRefreshCalls.size)
+
+        repository.detailGate?.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(2, repository.detailRefreshCalls.size)
+    }
+
     private fun viewModel(movieId: Int): MovieDetailViewModel {
         return MovieDetailViewModel(
             savedStateHandle = SavedStateHandle(mapOf("movieId" to movieId)),

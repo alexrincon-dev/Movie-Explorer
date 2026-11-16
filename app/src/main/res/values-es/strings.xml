@@ -22,4 +22,15 @@
     <string name="movie_list_error_not_found">No se encontraron estas películas.</string>
     <string name="movie_list_error_invalid_response">No se pudieron leer los datos de las películas.</string>
     <string name="movie_list_error_unknown">Algo salió mal. Inténtalo de nuevo.</string>
+    <string name="movie_detail_back">Volver</string>
+    <string name="movie_detail_loading">Cargando película</string>
+    <string name="movie_detail_unavailable">Esta película no está disponible.</string>
+    <string name="movie_detail_overview">Sinopsis</string>
+    <string name="movie_detail_overview_missing">No hay sinopsis disponible.</string>
+    <string name="movie_detail_year">Año</string>
+    <string name="movie_detail_year_missing">Año no disponible</string>
+    <string name="movie_detail_rating">Valoración</string>
+    <string name="movie_detail_rating_value">%1$.1f</string>
+    <string name="movie_detail_release_date">Fecha de estreno</string>
+    <string name="movie_detail_release_date_missing">Fecha de estreno no disponible</string>
 </resources>

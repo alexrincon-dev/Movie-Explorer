@@ -22,4 +22,15 @@
     <string name="movie_list_error_not_found">These movies could not be found.</string>
     <string name="movie_list_error_invalid_response">The movie data could not be read.</string>
     <string name="movie_list_error_unknown">Something went wrong. Try again.</string>
+    <string name="movie_detail_back">Go back</string>
+    <string name="movie_detail_loading">Loading movie</string>
+    <string name="movie_detail_unavailable">This movie is unavailable.</string>
+    <string name="movie_detail_overview">Overview</string>
+    <string name="movie_detail_overview_missing">No overview available.</string>
+    <string name="movie_detail_year">Year</string>
+    <string name="movie_detail_year_missing">Year unavailable</string>
+    <string name="movie_detail_rating">Rating</string>
+    <string name="movie_detail_rating_value">%1$.1f</string>
+    <string name="movie_detail_release_date">Release date</string>
+    <string name="movie_detail_release_date_missing">Release date unavailable</string>
 </resources>
