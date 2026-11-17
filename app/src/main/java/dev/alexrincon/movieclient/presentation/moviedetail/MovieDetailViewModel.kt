@@ -13,15 +13,19 @@ import dev.alexrincon.movieclient.presentation.language.MovieContentLanguageStat
 import dev.alexrincon.movieclient.presentation.navigation.MovieDetailRoute
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class MovieDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -29,21 +33,27 @@ class MovieDetailViewModel @Inject constructor(
     private val contentLanguageState: MovieContentLanguageState,
 ) : ViewModel() {
 
-    private val movieId: Int = savedStateHandle.toRoute<MovieDetailRoute>().movieId
+    private val movieIdState = MutableStateFlow(initialMovieId(savedStateHandle))
     private val loading = MutableStateFlow(true)
     private val error = MutableStateFlow<MovieError?>(null)
     private var retryJob: Job? = null
 
-    val uiState: StateFlow<MovieDetailUiState> = combine(
-        movieRepository.observeMovie(movieId),
-        loading,
-        error,
-    ) { movie, isLoading, movieError ->
-        MovieDetailUiState(
-            movie = movie,
-            isLoading = isLoading && movie == null,
-            error = movieError,
-        )
+    val uiState: StateFlow<MovieDetailUiState> = movieIdState.flatMapLatest { movieId ->
+        if (movieId == null) {
+            flowOf(MovieDetailUiState(isLoading = true))
+        } else {
+            combine(
+                movieRepository.observeMovie(movieId),
+                loading,
+                error,
+            ) { movie, isLoading, movieError ->
+                MovieDetailUiState(
+                    movie = movie,
+                    isLoading = isLoading && movie == null,
+                    error = movieError,
+                )
+            }
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
@@ -52,20 +62,41 @@ class MovieDetailViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            contentLanguageState.contentLanguage.collectLatest { language ->
-                refreshDetail(language)
+            movieIdState.collectLatest { movieId ->
+                if (movieId == null) return@collectLatest
+                contentLanguageState.contentLanguage.collectLatest { language ->
+                    refreshDetail(movieId, language)
+                }
             }
         }
     }
 
+    fun selectMovie(movieId: Int) {
+        if (movieIdState.value == movieId) return
+        retryJob?.cancel()
+        loading.value = true
+        error.value = null
+        movieIdState.value = movieId
+    }
+
+    /**
+     * Stops detail observation when the tablet pane leaves composition.
+     * The list destination may keep this ViewModel, so clearing the id cancels its work.
+     */
+    fun clearSelectedMovie() {
+        retryJob?.cancel()
+        movieIdState.value = null
+    }
+
     fun retry() {
+        val movieId = movieIdState.value ?: return
         if (retryJob?.isActive == true) return
         retryJob = viewModelScope.launch {
-            refreshDetail(contentLanguageState.contentLanguage.value)
+            refreshDetail(movieId, contentLanguageState.contentLanguage.value)
         }
     }
 
-    private suspend fun refreshDetail(language: MovieContentLanguage) {
+    private suspend fun refreshDetail(movieId: Int, language: MovieContentLanguage) {
         loading.value = true
         error.value = null
         try {
@@ -78,4 +109,9 @@ class MovieDetailViewModel @Inject constructor(
             error.value = exception.error
         }
     }
+}
+
+private fun initialMovieId(savedStateHandle: SavedStateHandle): Int? {
+    savedStateHandle.get<Int>("movieId")?.let { return it }
+    return runCatching { savedStateHandle.toRoute<MovieDetailRoute>().movieId }.getOrNull()
 }

@@ -63,6 +63,7 @@ import dev.alexrincon.movieclient.ui.theme.MovieClientTheme
 fun MovieDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    showBackNavigation: Boolean = true,
     viewModel: MovieDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -70,6 +71,7 @@ fun MovieDetailScreen(
         uiState = uiState,
         onBack = onBack,
         onRetry = viewModel::retry,
+        showBackNavigation = showBackNavigation,
         modifier = modifier,
     )
 }
@@ -79,11 +81,17 @@ private fun MovieDetailContent(
     uiState: MovieDetailUiState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
+    showBackNavigation: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = { MovieDetailTopBar(onBack = onBack) },
+        topBar = {
+            MovieDetailTopBar(
+                onBack = onBack,
+                showBackNavigation = showBackNavigation,
+            )
+        },
         containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
         val movie = uiState.movie
@@ -126,6 +134,7 @@ private fun MovieDetailContent(
 @Composable
 private fun MovieDetailTopBar(
     onBack: () -> Unit,
+    showBackNavigation: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val contentColor = if (isSystemInDarkTheme()) {
@@ -142,11 +151,13 @@ private fun MovieDetailTopBar(
         modifier = modifier,
         title = {},
         navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.movie_detail_back),
-                )
+            if (showBackNavigation) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.movie_detail_back),
+                    )
+                }
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(

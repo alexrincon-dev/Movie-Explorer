@@ -1,5 +1,6 @@
 package dev.alexrincon.movieclient.presentation.movielist
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -25,10 +26,12 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,6 +56,7 @@ internal fun MoviePosterGrid(
     isLoadingMore: Boolean,
     onMovieClick: (movieId: Int) -> Unit,
     onLoadMore: () -> Unit,
+    selectedMovieId: Int? = null,
     modifier: Modifier = Modifier,
 ) {
     val gridState = remember(listType) { LazyGridState() }
@@ -85,6 +89,8 @@ internal fun MoviePosterGrid(
         ) { movie ->
             MoviePoster(
                 movie = movie,
+                selected = selectedMovieId == movie.id,
+                showSelection = selectedMovieId != null,
                 onClick = { onMovieClick(movie.id) },
             )
         }
@@ -111,21 +117,39 @@ internal fun MoviePosterGrid(
 @Composable
 private fun MoviePoster(
     movie: Movie,
+    selected: Boolean,
+    showSelection: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val description = stringResource(R.string.movie_poster_content_description, movie.originalTitle)
+    val shape = MaterialTheme.shapes.small
     Surface(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.small,
+        modifier = modifier
+            .fillMaxWidth()
+            .then(
+                if (showSelection) {
+                    Modifier.border(
+                        width = 3.dp,
+                        color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        shape = shape,
+                    )
+                } else {
+                    Modifier
+                },
+            ),
+        shape = shape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(MoviePosterAspectRatio)
-                .semantics { contentDescription = description },
+                .semantics {
+                    contentDescription = description
+                    if (showSelection) this.selected = selected
+                },
         ) {
             val posterUrl = movie.posterPath
             if (posterUrl.isNullOrBlank()) {

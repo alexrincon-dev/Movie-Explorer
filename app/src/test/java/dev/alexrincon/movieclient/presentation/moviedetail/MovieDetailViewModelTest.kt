@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -132,6 +133,57 @@ class MovieDetailViewModelTest {
         repository.detailGate?.complete(Unit)
         advanceUntilIdle()
         assertEquals(2, repository.detailRefreshCalls.size)
+    }
+
+    @Test
+    fun selectMovieKeepsTheCurrentDetailAndCancelsThePreviousRefresh() = runViewModelTest {
+        val viewModel = viewModel(movieId = 1)
+        advanceUntilIdle()
+        viewModel.selectMovie(1)
+        advanceUntilIdle()
+        assertEquals(
+            listOf(DetailRequest(movieId = 1, language = MovieContentLanguage.EN_US)),
+            repository.detailRefreshCalls,
+        )
+
+        repository.detailGate = CompletableDeferred()
+        viewModel.selectMovie(2)
+        advanceUntilIdle()
+        assertEquals(2, repository.detailRefreshCalls.last().movieId)
+
+        viewModel.selectMovie(3)
+        advanceUntilIdle()
+
+        assertEquals(3, repository.detailRefreshCalls.last().movieId)
+        assertEquals(3, repository.detailRefreshCalls.size)
+
+        repository.detailGate?.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(3, repository.detailRefreshCalls.size)
+        assertEquals(listOf(1, 2, 3), repository.observedMovieIds)
+    }
+
+    @Test
+    fun clearSelectedMovieStopsLanguageRefreshUntilAnotherMovieIsSelected() = runViewModelTest {
+        val viewModel = viewModel(movieId = 6)
+        advanceUntilIdle()
+        val refreshesBeforeClear = repository.detailRefreshCalls.size
+
+        viewModel.clearSelectedMovie()
+        languageState.updateContentLanguage(MovieContentLanguage.ES_MX)
+        advanceUntilIdle()
+
+        assertEquals(refreshesBeforeClear, repository.detailRefreshCalls.size)
+        assertNull(viewModel.uiState.value.movie)
+        assertTrue(viewModel.uiState.value.isLoading)
+
+        viewModel.selectMovie(9)
+        advanceUntilIdle()
+
+        assertEquals(
+            DetailRequest(movieId = 9, language = MovieContentLanguage.ES_MX),
+            repository.detailRefreshCalls.last(),
+        )
     }
 
     private fun viewModel(movieId: Int): MovieDetailViewModel {

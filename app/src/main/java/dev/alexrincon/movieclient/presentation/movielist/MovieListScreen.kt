@@ -65,6 +65,7 @@ private val movieListTypes = listOf(
 fun MovieListScreen(
     onMovieClick: (movieId: Int) -> Unit,
     modifier: Modifier = Modifier,
+    selectedMovieId: Int? = null,
     viewModel: MovieListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -75,6 +76,7 @@ fun MovieListScreen(
         onRefresh = viewModel::refresh,
         onLoadMore = viewModel::loadMore,
         onLanguageSelected = viewModel::changeContentLanguage,
+        selectedMovieId = selectedMovieId,
         modifier = modifier,
     )
 }
@@ -87,6 +89,7 @@ private fun MovieListContent(
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onLanguageSelected: (MovieContentLanguage) -> Unit,
+    selectedMovieId: Int? = null,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -116,6 +119,7 @@ private fun MovieListContent(
                 onMovieClick = onMovieClick,
                 onRefresh = onRefresh,
                 onLoadMore = onLoadMore,
+                selectedMovieId = selectedMovieId,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
@@ -241,6 +245,7 @@ private fun MovieListBody(
     onMovieClick: (movieId: Int) -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
+    selectedMovieId: Int? = null,
     modifier: Modifier = Modifier,
 ) {
     val showLoading = uiState.movies.isEmpty() &&
@@ -295,6 +300,7 @@ private fun MovieListBody(
                             isLoadingMore = uiState.isLoadingMore,
                             onMovieClick = onMovieClick,
                             onLoadMore = onLoadMore,
+                            selectedMovieId = selectedMovieId,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
