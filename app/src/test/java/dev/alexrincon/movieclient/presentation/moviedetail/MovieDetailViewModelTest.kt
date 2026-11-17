@@ -7,6 +7,7 @@ import dev.alexrincon.movieclient.domain.error.MovieError
 import dev.alexrincon.movieclient.domain.error.MovieException
 import dev.alexrincon.movieclient.domain.model.MovieContentLanguage
 import dev.alexrincon.movieclient.presentation.DetailRequest
+import dev.alexrincon.movieclient.presentation.FakeMovieContentLanguageStore
 import dev.alexrincon.movieclient.presentation.FakeMovieRepository
 import dev.alexrincon.movieclient.presentation.language.MovieContentLanguageState
 import dev.alexrincon.movieclient.presentation.runViewModelTest
@@ -27,7 +28,7 @@ import org.robolectric.annotation.Config
 @Config(manifest = Config.NONE, sdk = [28])
 class MovieDetailViewModelTest {
     private val repository = FakeMovieRepository()
-    private val languageState = MovieContentLanguageState()
+    private val languageState = MovieContentLanguageState(FakeMovieContentLanguageStore())
 
     @Test
     fun observesRequestedMovieAndRefreshesWithCurrentLanguage() = runViewModelTest {

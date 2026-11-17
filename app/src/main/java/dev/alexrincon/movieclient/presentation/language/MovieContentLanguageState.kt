@@ -1,23 +1,54 @@
 package dev.alexrincon.movieclient.presentation.language
 
+import dev.alexrincon.movieclient.domain.language.MovieContentLanguageStore
 import dev.alexrincon.movieclient.domain.model.MovieContentLanguage
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
- * In-memory TMDB content language for the whole app.
- * This is not the Android UI locale and it is not persisted.
+ * TMDB content language for the whole app.
+ * This is not the Android UI locale. The value is null until the persisted
+ * language has been read, and a change is stored only when [updateContentLanguage] is called.
  */
 @Singleton
-class MovieContentLanguageState @Inject constructor() {
-    private val currentLanguage = MutableStateFlow(MovieContentLanguage.EN_US)
+class MovieContentLanguageState @Inject constructor(
+    private val store: MovieContentLanguageStore,
+) {
+    private val currentLanguage = MutableStateFlow<MovieContentLanguage?>(null)
+    private val loadMutex = Mutex()
 
-    val contentLanguage: StateFlow<MovieContentLanguage> = currentLanguage.asStateFlow()
+    val contentLanguage: StateFlow<MovieContentLanguage?> = currentLanguage.asStateFlow()
 
-    fun updateContentLanguage(language: MovieContentLanguage) {
-        currentLanguage.value = language
+    /**
+     * Returns the persisted language, reading it once.
+     * A later [updateContentLanguage] is not overwritten by that read.
+     */
+    suspend fun awaitLanguage(): MovieContentLanguage {
+        currentLanguage.value?.let { return it }
+        return loadMutex.withLock {
+            currentLanguage.value?.let { return@withLock it }
+            val loaded = try {
+                store.read()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                MovieContentLanguage.EN_US
+            }
+            currentLanguage.value = loaded
+            loaded
+        }
+    }
+
+    suspend fun updateContentLanguage(language: MovieContentLanguage) {
+        loadMutex.withLock {
+            store.write(language)
+            currentLanguage.value = language
+        }
     }
 }

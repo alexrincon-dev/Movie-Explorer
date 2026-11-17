@@ -1,19 +1,14 @@
-package dev.alexrincon.movieclient.data.remote.mapper
+package dev.alexrincon.movieclient.data.remote.dto
 
-import dev.alexrincon.movieclient.data.image.TmdbImageUrlBuilder
-import dev.alexrincon.movieclient.data.remote.dto.MovieDto
-import dev.alexrincon.movieclient.data.remote.dto.MoviePageDto
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
-class MovieDtoMapperTest {
+class MovieDtoTest {
     private val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
     }
-    private val imageUrls = TmdbImageUrlBuilder()
 
     @Test
     fun decode_mapsTmdbFieldsAndIgnoresUnknownProperties() {
@@ -39,7 +34,7 @@ class MovieDtoMapperTest {
             """.trimIndent(),
         )
 
-        val movie = page.results.single().toMovie(imageUrls)
+        val movie = page.results.single()
 
         assertEquals(2, page.page)
         assertEquals(10, page.totalPages)
@@ -47,9 +42,9 @@ class MovieDtoMapperTest {
         assertEquals(7, movie.id)
         assertEquals("Original", movie.originalTitle)
         assertEquals("", movie.overview)
-        assertEquals("https://image.tmdb.org/t/p/w500/poster.jpg", movie.posterPath)
-        assertNull(movie.backdropPath)
-        assertNull(movie.releaseDate)
-        assertEquals(8.5, movie.voteAverage, 0.0)
+        assertEquals("/poster.jpg", movie.posterPath)
+        assertEquals("", movie.backdropPath)
+        assertEquals("", movie.releaseDate)
+        assertEquals(8.5, movie.voteAverage ?: 0.0, 0.0)
     }
 }

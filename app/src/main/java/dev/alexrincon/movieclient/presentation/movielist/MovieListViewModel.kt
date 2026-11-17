@@ -59,7 +59,10 @@ class MovieListViewModel @Inject constructor(
     )
 
     init {
-        ensureInitialRefresh(MovieListType.POPULAR)
+        viewModelScope.launch {
+            contentLanguageState.awaitLanguage()
+            ensureInitialRefresh(selectedListType.value)
+        }
     }
 
     fun selectListType(listType: MovieListType) {
@@ -101,12 +104,12 @@ class MovieListViewModel @Inject constructor(
     }
 
     fun loadMore() {
+        val language = contentLanguageState.contentLanguage.value ?: return
         val current = uiState.value
         if (loadMoreInFlight || languageChangeInFlight || !current.canLoadMore) return
         if (refreshJobs[current.selectedListType]?.isActive == true) return
         loadMoreInFlight = true
         val listType = current.selectedListType
-        val language = contentLanguageState.contentLanguage.value
         loadMoreJob = viewModelScope.launch {
             if (selectedListType.value == listType) {
                 status.value = status.value.copy(
@@ -140,7 +143,8 @@ class MovieListViewModel @Inject constructor(
      * The shared language changes only after both lists refresh successfully.
      */
     fun changeContentLanguage(language: MovieContentLanguage) {
-        if (language == contentLanguageState.contentLanguage.value || languageChangeInFlight) {
+        val current = contentLanguageState.contentLanguage.value ?: return
+        if (language == current || languageChangeInFlight) {
             return
         }
         languageChangeInFlight = true
@@ -183,6 +187,7 @@ class MovieListViewModel @Inject constructor(
         if (languageChangeInFlight) return
         if (initial && listType in listsRefreshed) return
         if (initial && refreshJobs[listType]?.isActive == true) return
+        val language = contentLanguageState.contentLanguage.value ?: return
         loadMoreJob?.cancel()
         val token = (refreshTokens[listType] ?: 0) + 1
         refreshTokens[listType] = token
@@ -198,7 +203,7 @@ class MovieListViewModel @Inject constructor(
                 )
             }
             try {
-                refreshMovies(listType, contentLanguageState.contentLanguage.value)
+                refreshMovies(listType, language)
                 listsRefreshed += listType
                 if (isCurrentRefresh(listType, token)) {
                     status.value = idleStatus()
@@ -237,7 +242,7 @@ class MovieListViewModel @Inject constructor(
     private fun ListStatus.toUiState(
         listType: MovieListType,
         snapshot: MovieListSnapshot,
-        language: MovieContentLanguage,
+        language: MovieContentLanguage?,
     ): MovieListUiState {
         val showInitialLoader = isInitialLoading && snapshot.movies.isEmpty()
         return MovieListUiState(

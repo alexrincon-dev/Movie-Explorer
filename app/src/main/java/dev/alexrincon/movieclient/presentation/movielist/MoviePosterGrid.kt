@@ -42,7 +42,6 @@ import coil3.compose.AsyncImagePainter
 import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.SubcomposeAsyncImageContent
 import dev.alexrincon.movieclient.R
-import kotlinx.coroutines.flow.collect
 import dev.alexrincon.movieclient.domain.model.Movie
 import dev.alexrincon.movieclient.domain.model.MovieListType
 
@@ -50,6 +49,23 @@ internal const val MoviePosterAspectRatio = 2f / 3f
 
 private const val LoadMorePrefetchItems = 4
 private const val LoadingMoreKey = Int.MIN_VALUE
+
+/**
+ * True when the last visible row is within [LoadMorePrefetchItems] of the end
+ * and no refresh or page request is already blocking pagination.
+ * [movieCount] is part of the result so a new list is evaluated again.
+ */
+internal fun movieGridShouldLoadMore(
+    lastVisibleIndex: Int?,
+    totalItems: Int,
+    movieCount: Int,
+    isLoadingMore: Boolean,
+    isRefreshing: Boolean,
+): Boolean {
+    if (isLoadingMore || isRefreshing || movieCount <= 0) return false
+    if (lastVisibleIndex == null || totalItems <= 0) return false
+    return lastVisibleIndex >= totalItems - LoadMorePrefetchItems
+}
 
 /**
  * Scroll position of each movie list. Popular and Top Rated keep independent positions.
@@ -80,19 +96,26 @@ internal fun MoviePosterGrid(
     isLoadingMore: Boolean,
     onMovieClick: (movieId: Int) -> Unit,
     onLoadMore: () -> Unit,
+    isRefreshing: Boolean = false,
     selectedMovieId: Int? = null,
     modifier: Modifier = Modifier,
 ) {
-    val loadMore by rememberUpdatedState(onLoadMore)
+    val movieCount = rememberUpdatedState(movies.size)
+    val loadingMore = rememberUpdatedState(isLoadingMore)
+    val refreshing = rememberUpdatedState(isRefreshing)
+    val loadMoreRequest = rememberUpdatedState(onLoadMore)
     LaunchedEffect(gridState) {
         snapshotFlow {
             val layoutInfo = gridState.layoutInfo
-            val totalItems = layoutInfo.totalItemsCount
-            val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index
-                ?: return@snapshotFlow false
-            totalItems > 0 && lastVisibleIndex >= totalItems - LoadMorePrefetchItems
-        }.collect { atEnd ->
-            if (atEnd) loadMore()
+            movieGridShouldLoadMore(
+                lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index,
+                totalItems = layoutInfo.totalItemsCount,
+                movieCount = movieCount.value,
+                isLoadingMore = loadingMore.value,
+                isRefreshing = refreshing.value,
+            )
+        }.collect { shouldLoadMore ->
+            if (shouldLoadMore) loadMoreRequest.value()
         }
     }
 

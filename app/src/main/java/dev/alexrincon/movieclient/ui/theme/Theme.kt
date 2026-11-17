@@ -43,21 +43,21 @@ private fun MovieClientThemePreview() {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.movie_list_placeholder_title),
+                    text = stringResource(R.string.app_name),
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = stringResource(R.string.movie_detail_placeholder_movie_id, 1),
+                    text = stringResource(R.string.movie_detail_year),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = stringResource(R.string.app_name),
+                    text = stringResource(R.string.movie_list_popular),
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 Button(onClick = {}) {
-                    Text(text = stringResource(R.string.movie_detail_placeholder_back))
+                    Text(text = stringResource(R.string.movie_detail_back))
                 }
             }
         }

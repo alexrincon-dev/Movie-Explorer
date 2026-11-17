@@ -9,6 +9,7 @@ import dev.alexrincon.movieclient.domain.model.MovieContentLanguage
 import dev.alexrincon.movieclient.domain.model.MovieListType
 import dev.alexrincon.movieclient.domain.usecase.LoadMoreMoviesUseCase
 import dev.alexrincon.movieclient.domain.usecase.RefreshMoviesUseCase
+import dev.alexrincon.movieclient.presentation.FakeMovieContentLanguageStore
 import dev.alexrincon.movieclient.presentation.FakeMovieRepository
 import dev.alexrincon.movieclient.presentation.ListRequest
 import dev.alexrincon.movieclient.presentation.language.MovieContentLanguageState
@@ -26,7 +27,8 @@ import org.junit.Test
 
 class MovieListViewModelTest {
     private val repository = FakeMovieRepository()
-    private val languageState = MovieContentLanguageState()
+    private val languageStore = FakeMovieContentLanguageStore()
+    private val languageState = MovieContentLanguageState(languageStore)
 
     @Test
     fun startsOnPopularAndSwitchesTheObservedListWithoutRepeatingRefresh() = runViewModelTest {
@@ -144,6 +146,7 @@ class MovieListViewModelTest {
         assertEquals(listOf(MovieContentLanguage.ES_MX), repository.refreshAllCalls)
         assertEquals(MovieContentLanguage.EN_US, languageState.contentLanguage.value)
         assertEquals(MovieContentLanguage.EN_US, viewModel.uiState.value.contentLanguage)
+        assertTrue(languageStore.writes.isEmpty())
         assertEquals(cached, viewModel.uiState.value.movies)
         assertTrue(viewModel.uiState.value.isRefreshing)
 
@@ -152,6 +155,8 @@ class MovieListViewModelTest {
 
         assertEquals(MovieContentLanguage.ES_MX, languageState.contentLanguage.value)
         assertEquals(MovieContentLanguage.ES_MX, viewModel.uiState.value.contentLanguage)
+        assertEquals(listOf(MovieContentLanguage.ES_MX), languageStore.writes)
+        assertEquals(MovieContentLanguage.ES_MX, languageStore.stored)
         assertFalse(viewModel.uiState.value.isRefreshing)
         assertEquals(cached, viewModel.uiState.value.movies)
         assertEquals(refreshesBeforeLanguageChange, repository.refreshCalls.size)
@@ -159,6 +164,51 @@ class MovieListViewModelTest {
         viewModel.selectListType(MovieListType.TOP_RATED)
         advanceUntilIdle()
         assertEquals(refreshesBeforeLanguageChange, repository.refreshCalls.size)
+    }
+
+    @Test
+    fun initialRefreshUsesTheRestoredLanguageAndDoesNotStartBeforeItLoads() = runViewModelTest {
+        languageStore.stored = MovieContentLanguage.ES_MX
+        val viewModel = viewModel()
+
+        assertTrue(repository.refreshCalls.isEmpty())
+        assertNull(viewModel.uiState.value.contentLanguage)
+
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(ListRequest(MovieListType.POPULAR, MovieContentLanguage.ES_MX)),
+            repository.refreshCalls,
+        )
+        assertEquals(MovieContentLanguage.ES_MX, viewModel.uiState.value.contentLanguage)
+        assertTrue(languageStore.writes.isEmpty())
+    }
+
+    @Test
+    fun loadMoreDuringRefreshIsIgnoredAndWorksAfterTheRefreshCompletes() = runViewModelTest {
+        repository.listSnapshots.getValue(MovieListType.POPULAR).value =
+            testSnapshot(listOf(testMovie(1)), lastLoadedPage = 1, totalPages = 3)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        repository.refreshGate = CompletableDeferred()
+
+        viewModel.refresh()
+        advanceUntilIdle()
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertTrue(repository.loadMoreCalls.isEmpty())
+        assertTrue(viewModel.uiState.value.isRefreshing)
+
+        repository.refreshGate?.complete(Unit)
+        advanceUntilIdle()
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(ListRequest(MovieListType.POPULAR, MovieContentLanguage.EN_US)),
+            repository.loadMoreCalls,
+        )
     }
 
     @Test
@@ -175,6 +225,8 @@ class MovieListViewModelTest {
         assertEquals(listOf(MovieContentLanguage.ES_MX), repository.refreshAllCalls)
         assertEquals(MovieContentLanguage.EN_US, languageState.contentLanguage.value)
         assertEquals(MovieContentLanguage.EN_US, viewModel.uiState.value.contentLanguage)
+        assertEquals(MovieContentLanguage.EN_US, languageStore.stored)
+        assertTrue(languageStore.writes.isEmpty())
         assertEquals(MovieError.Network, viewModel.uiState.value.error)
         assertEquals(cached, viewModel.uiState.value.movies)
         assertFalse(viewModel.uiState.value.isRefreshing)

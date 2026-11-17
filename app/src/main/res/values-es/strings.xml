@@ -1,10 +1,5 @@
 <resources>
     <string name="app_name">MovieExplorer</string>
-    <string name="movie_list_placeholder_title">Lista de películas</string>
-    <string name="movie_list_placeholder_open_movie">Abrir película %1$d</string>
-    <string name="movie_detail_placeholder_title">Detalle de la película</string>
-    <string name="movie_detail_placeholder_movie_id">Id. de la película: %1$d</string>
-    <string name="movie_detail_placeholder_back">Atrás</string>
     <string name="movie_list_popular">Populares</string>
     <string name="movie_list_top_rated">Mejor valoradas</string>
     <string name="language_action">Idioma del contenido: %1$s</string>

@@ -20,7 +20,7 @@ Android app for browsing TMDB's **Popular** and **Top Rated** movies, built for 
 | UI | Jetpack Compose, Material 3, Navigation Compose (type-safe routes) |
 | Presentation | Architecture Components ViewModel, `StateFlow` |
 | Dependency injection | Hilt (KSP) |
-| Persistence | Room (KSP), with exported schemas in `app/schemas` |
+| Persistence | Room (KSP), with exported schemas in `app/schemas`. Preferences DataStore for the content language |
 | Networking | Retrofit, OkHttp, kotlinx.serialization |
 | Images | Coil 3 |
 | Async | Kotlin Coroutines and Flow |
@@ -35,6 +35,7 @@ core/            Hilt modules for networking (Retrofit, OkHttp, API key) and cor
 domain/          Pure Kotlin: models, MovieError, MovieRepository contract, use cases
 data/
   local/         Room database, entities, DAOs, entity mappers and merge rules
+  language/      DataStore persistence for the movie content language
   remote/        Retrofit API, DTOs, TMDB remote data source
   image/         TMDB image URL building
   repository/    MovieRepositoryImpl (offline-first) and error translation
@@ -67,7 +68,7 @@ There are two independent language settings:
 - **App UI language** follows the Android system locale through string resources (`values/` and `values-es/`).
 - **Movie content language** is selected with the **EN/ES** button in the list's top bar. It controls the `language` parameter sent to TMDB (`en-US` or `es-MX`), which affects text such as overviews.
 
-Changing the content language refreshes page 1 of both lists in the new language. The selection is published only after both requests succeed; if either fails, the previous language and cached data are kept. The app displays TMDB's *original title*, which TMDB does not translate.
+The choice is stored with Preferences DataStore and restored before the first movie request. A missing or invalid stored value falls back to English. Changing the content language refreshes page 1 of both lists in the new language. The new language is saved and published only after both requests succeed; if either fails, the previous language and cached data are kept. The app displays TMDB's *original title*, which TMDB does not translate.
 
 ## TMDB API setup
 
@@ -112,16 +113,15 @@ The release build is not configured with a signing key, so it produces `app-rele
 ./gradlew :app:compileDebugKotlin           # quick compile check
 ```
 
-- **Unit tests** (`app/src/test`): ViewModels with a fake repository, entity/DTO mappers and merge rules, error translation, remote data source, image URLs, adaptive layout helpers, date formatting.
+- **Unit tests** (`app/src/test`): ViewModels with a fake repository, content-language persistence, entity and DTO decoding, merge rules, error translation, remote data source, image URLs, adaptive layout helpers, date formatting.
 - **Instrumented tests** (`app/src/androidTest`):
   - `MovieRepositoryImplTest`: repository behavior against an in-memory Room database, including failure handling, pagination and concurrency.
   - `MovieGridStatesTest`: Compose state restoration of the grid scroll positions.
-
-`MovieGridStatesTest` uses the Compose test rule, which depends on Espresso. With the project's current `espresso-core` version (3.5.1), it fails on API 34+ devices (`InputManager.getInstance`). The repository tests do not use Espresso and run on current devices.
+  - `MoviePosterGridLoadMoreTest`: pagination is requested again after a refresh ends while the grid stays at the end, without repeating a request that is already loading.
 
 ## Known limitations
 
-- The selected movie content language is kept in memory only. After the app process restarts it returns to English, while cached movies may still contain Spanish text until they are refreshed.
+- Each movie stores one overview. After a restart, cached text can stay in the previous language until the startup refresh finishes. If that refresh fails, the selector shows the saved language while the cached text is unchanged.
 - Each movie stores one overview, in the language of its latest successful response.
 - Cached movies are never pruned. The cache only grows as more pages are loaded.
 - There is no background sync. Data refreshes when a list is first opened, on pull-to-refresh, on language change, and when a detail is opened.

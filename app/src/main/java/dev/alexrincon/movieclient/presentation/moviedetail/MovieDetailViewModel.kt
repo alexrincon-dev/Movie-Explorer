@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -64,7 +65,8 @@ class MovieDetailViewModel @Inject constructor(
         viewModelScope.launch {
             movieIdState.collectLatest { movieId ->
                 if (movieId == null) return@collectLatest
-                contentLanguageState.contentLanguage.collectLatest { language ->
+                contentLanguageState.awaitLanguage()
+                contentLanguageState.contentLanguage.filterNotNull().collectLatest { language ->
                     refreshDetail(movieId, language)
                 }
             }
@@ -91,8 +93,9 @@ class MovieDetailViewModel @Inject constructor(
     fun retry() {
         val movieId = movieIdState.value ?: return
         if (retryJob?.isActive == true) return
+        val language = contentLanguageState.contentLanguage.value ?: return
         retryJob = viewModelScope.launch {
-            refreshDetail(movieId, contentLanguageState.contentLanguage.value)
+            refreshDetail(movieId, language)
         }
     }
 

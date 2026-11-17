@@ -8,7 +8,7 @@ import dev.alexrincon.movieclient.domain.model.MovieListType
 data class MovieListUiState(
     val movies: List<Movie> = emptyList(),
     val selectedListType: MovieListType = MovieListType.POPULAR,
-    val contentLanguage: MovieContentLanguage = MovieContentLanguage.EN_US,
+    val contentLanguage: MovieContentLanguage? = null,
     val isInitialLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val isLoadingMore: Boolean = false,

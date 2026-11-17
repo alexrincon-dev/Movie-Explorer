@@ -135,7 +135,7 @@ private fun MovieListContent(
 
 @Composable
 private fun MovieListTopBar(
-    contentLanguage: MovieContentLanguage,
+    contentLanguage: MovieContentLanguage?,
     onLanguageSelected: (MovieContentLanguage) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -145,10 +145,12 @@ private fun MovieListTopBar(
             Text(text = stringResource(R.string.app_name))
         },
         actions = {
-            ContentLanguageAction(
-                contentLanguage = contentLanguage,
-                onLanguageSelected = onLanguageSelected,
-            )
+            if (contentLanguage != null) {
+                ContentLanguageAction(
+                    contentLanguage = contentLanguage,
+                    onLanguageSelected = onLanguageSelected,
+                )
+            }
         },
         colors = MovieListTopBarColors(),
     )
@@ -304,6 +306,7 @@ private fun MovieListBody(
                             movies = uiState.movies,
                             gridState = gridState,
                             isLoadingMore = uiState.isLoadingMore,
+                            isRefreshing = uiState.isRefreshing,
                             onMovieClick = onMovieClick,
                             onLoadMore = onLoadMore,
                             selectedMovieId = selectedMovieId,
