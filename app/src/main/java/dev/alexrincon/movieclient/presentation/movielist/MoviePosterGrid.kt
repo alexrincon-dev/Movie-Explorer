@@ -19,10 +19,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,17 +51,38 @@ internal const val MoviePosterAspectRatio = 2f / 3f
 private const val LoadMorePrefetchItems = 4
 private const val LoadingMoreKey = Int.MIN_VALUE
 
+/**
+ * Scroll position of each movie list. Popular and Top Rated keep independent positions.
+ * Create it above the phone/tablet layout switch so a resize does not reset the positions.
+ */
+@Stable
+class MovieGridStates internal constructor(
+    private val popular: LazyGridState,
+    private val topRated: LazyGridState,
+) {
+    operator fun get(listType: MovieListType): LazyGridState = when (listType) {
+        MovieListType.POPULAR -> popular
+        MovieListType.TOP_RATED -> topRated
+    }
+}
+
+@Composable
+fun rememberMovieGridStates(): MovieGridStates {
+    val popular = rememberSaveable(saver = LazyGridState.Saver) { LazyGridState() }
+    val topRated = rememberSaveable(saver = LazyGridState.Saver) { LazyGridState() }
+    return remember(popular, topRated) { MovieGridStates(popular, topRated) }
+}
+
 @Composable
 internal fun MoviePosterGrid(
     movies: List<Movie>,
-    listType: MovieListType,
+    gridState: LazyGridState,
     isLoadingMore: Boolean,
     onMovieClick: (movieId: Int) -> Unit,
     onLoadMore: () -> Unit,
     selectedMovieId: Int? = null,
     modifier: Modifier = Modifier,
 ) {
-    val gridState = remember(listType) { LazyGridState() }
     val loadMore by rememberUpdatedState(onLoadMore)
     LaunchedEffect(gridState) {
         snapshotFlow {

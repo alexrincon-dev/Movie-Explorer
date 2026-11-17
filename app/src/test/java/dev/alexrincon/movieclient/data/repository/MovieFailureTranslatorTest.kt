@@ -8,6 +8,8 @@ import kotlinx.serialization.SerializationException
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.fail
 import org.junit.Test
@@ -24,6 +26,34 @@ class MovieFailureTranslatorTest {
         assertEquals(MovieError.Server, http(503).toMovieException().error)
         assertEquals(MovieError.InvalidResponse, SerializationException("bad json").toMovieException().error)
         assertEquals(MovieError.Unknown, IllegalStateException("boom").toMovieException().error)
+    }
+
+    @Test
+    fun mapsUnauthorizedOnlyFrom401() {
+        assertEquals(MovieError.Unauthorized, http(401).toMovieException().error)
+        assertEquals(MovieError.Unauthorized, IOException("wrapped", http(401)).toMovieException().error)
+        assertEquals(MovieError.Unknown, http(400).toMovieException().error)
+        assertEquals(MovieError.Unknown, http(403).toMovieException().error)
+    }
+
+    @Test
+    fun unauthorizedDoesNotCarryResponseDetails() {
+        val exception = http(401, body = """{"status_message":"Invalid API key: secret-key"}""")
+            .toMovieException()
+
+        assertEquals(MovieError.Unauthorized, exception.error)
+        assertNull(exception.cause)
+        assertFalse(exception.message.orEmpty().contains("secret-key"))
+    }
+
+    @Test
+    fun translateMovieFailures_wrapsUnauthorizedHttpException() = runBlocking {
+        try {
+            translateMovieFailures<Unit> { throw http(401) }
+            fail()
+        } catch (thrown: MovieException) {
+            assertEquals(MovieError.Unauthorized, thrown.error)
+        }
     }
 
     @Test
@@ -47,11 +77,11 @@ class MovieFailureTranslatorTest {
         }
     }
 
-    private fun http(code: Int): HttpException {
+    private fun http(code: Int, body: String = ""): HttpException {
         return HttpException(
             Response.error<String>(
                 code,
-                "".toResponseBody("text/plain".toMediaType()),
+                body.toResponseBody("text/plain".toMediaType()),
             ),
         )
     }

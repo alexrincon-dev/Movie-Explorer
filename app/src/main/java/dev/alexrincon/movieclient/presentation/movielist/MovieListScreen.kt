@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -64,6 +65,7 @@ private val movieListTypes = listOf(
 @Composable
 fun MovieListScreen(
     onMovieClick: (movieId: Int) -> Unit,
+    gridStates: MovieGridStates,
     modifier: Modifier = Modifier,
     selectedMovieId: Int? = null,
     viewModel: MovieListViewModel = hiltViewModel(),
@@ -71,6 +73,7 @@ fun MovieListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     MovieListContent(
         uiState = uiState,
+        gridStates = gridStates,
         onMovieClick = onMovieClick,
         onListTypeSelected = viewModel::selectListType,
         onRefresh = viewModel::refresh,
@@ -84,6 +87,7 @@ fun MovieListScreen(
 @Composable
 private fun MovieListContent(
     uiState: MovieListUiState,
+    gridStates: MovieGridStates,
     onMovieClick: (movieId: Int) -> Unit,
     onListTypeSelected: (MovieListType) -> Unit,
     onRefresh: () -> Unit,
@@ -116,6 +120,7 @@ private fun MovieListContent(
             )
             MovieListBody(
                 uiState = uiState,
+                gridState = gridStates[uiState.selectedListType],
                 onMovieClick = onMovieClick,
                 onRefresh = onRefresh,
                 onLoadMore = onLoadMore,
@@ -242,6 +247,7 @@ private fun MovieListTypeSelector(
 @Composable
 private fun MovieListBody(
     uiState: MovieListUiState,
+    gridState: LazyGridState,
     onMovieClick: (movieId: Int) -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
@@ -296,7 +302,7 @@ private fun MovieListBody(
                     ) {
                         MoviePosterGrid(
                             movies = uiState.movies,
-                            listType = uiState.selectedListType,
+                            gridState = gridState,
                             isLoadingMore = uiState.isLoadingMore,
                             onMovieClick = onMovieClick,
                             onLoadMore = onLoadMore,
@@ -408,6 +414,7 @@ private fun MovieErrorMessage(error: MovieError): String {
         MovieError.Network -> R.string.movie_list_error_network
         MovieError.Server -> R.string.movie_list_error_server
         MovieError.RateLimited -> R.string.movie_list_error_rate_limited
+        MovieError.Unauthorized -> R.string.movie_list_error_unauthorized
         MovieError.NotFound -> R.string.movie_list_error_not_found
         MovieError.InvalidResponse -> R.string.movie_list_error_invalid_response
         MovieError.Unknown -> R.string.movie_list_error_unknown
@@ -452,6 +459,7 @@ private fun MovieListContentPreview() {
                 isInitialLoading = false,
                 canLoadMore = true,
             ),
+            gridStates = rememberMovieGridStates(),
             onMovieClick = {},
             onListTypeSelected = {},
             onRefresh = {},
@@ -467,6 +475,7 @@ private fun MovieListLoadingPreview() {
     MovieClientTheme {
         MovieListContent(
             uiState = MovieListUiState(isInitialLoading = true),
+            gridStates = rememberMovieGridStates(),
             onMovieClick = {},
             onListTypeSelected = {},
             onRefresh = {},
@@ -485,6 +494,7 @@ private fun MovieListErrorPreview() {
                 isInitialLoading = false,
                 error = MovieError.Network,
             ),
+            gridStates = rememberMovieGridStates(),
             onMovieClick = {},
             onListTypeSelected = {},
             onRefresh = {},
@@ -504,6 +514,7 @@ private fun MovieListCachedErrorPreview() {
                 isInitialLoading = false,
                 error = MovieError.Server,
             ),
+            gridStates = rememberMovieGridStates(),
             onMovieClick = {},
             onListTypeSelected = {},
             onRefresh = {},

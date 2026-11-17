@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.alexrincon.movieclient.R
 import dev.alexrincon.movieclient.presentation.moviedetail.MovieDetailScreen
 import dev.alexrincon.movieclient.presentation.moviedetail.MovieDetailViewModel
+import dev.alexrincon.movieclient.presentation.movielist.MovieGridStates
 import dev.alexrincon.movieclient.presentation.movielist.MovieListScreen
 import dev.alexrincon.movieclient.presentation.movielist.MovieListViewModel
 
@@ -29,6 +30,7 @@ import dev.alexrincon.movieclient.presentation.movielist.MovieListViewModel
 internal fun MovieMasterDetail(
     selectedMovieId: Int?,
     onMovieSelected: (Int) -> Unit,
+    gridStates: MovieGridStates,
     modifier: Modifier = Modifier,
     listViewModel: MovieListViewModel = hiltViewModel(),
     detailViewModel: MovieDetailViewModel = hiltViewModel(),
@@ -53,6 +55,7 @@ internal fun MovieMasterDetail(
     Row(modifier = modifier.fillMaxSize()) {
         MovieListScreen(
             onMovieClick = onMovieSelected,
+            gridStates = gridStates,
             selectedMovieId = displayedMovieId,
             viewModel = listViewModel,
             modifier = Modifier

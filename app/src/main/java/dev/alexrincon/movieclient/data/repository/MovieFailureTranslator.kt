@@ -23,6 +23,7 @@ internal fun Throwable.toMovieException(): MovieException {
     val httpException = causeChain().filterIsInstance<HttpException>().firstOrNull()
     if (httpException != null) {
         val error = when (httpException.code()) {
+            HTTP_UNAUTHORIZED -> MovieError.Unauthorized
             HTTP_NOT_FOUND -> MovieError.NotFound
             HTTP_TOO_MANY_REQUESTS -> MovieError.RateLimited
             in HTTP_SERVER_ERROR_START..HTTP_SERVER_ERROR_END -> MovieError.Server
@@ -48,6 +49,7 @@ private fun Throwable.causeChain(): Sequence<Throwable> = sequence {
     }
 }
 
+private const val HTTP_UNAUTHORIZED = 401
 private const val HTTP_NOT_FOUND = 404
 private const val HTTP_TOO_MANY_REQUESTS = 429
 private const val HTTP_SERVER_ERROR_START = 500

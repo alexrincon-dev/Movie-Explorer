@@ -426,12 +426,13 @@ private fun MovieDetailErrorBanner(
 @Composable
 private fun MovieErrorMessage(error: MovieError): String {
     val messageRes = when (error) {
-        MovieError.Network -> R.string.movie_list_error_network
-        MovieError.Server -> R.string.movie_list_error_server
-        MovieError.RateLimited -> R.string.movie_list_error_rate_limited
-        MovieError.NotFound -> R.string.movie_list_error_not_found
-        MovieError.InvalidResponse -> R.string.movie_list_error_invalid_response
-        MovieError.Unknown -> R.string.movie_list_error_unknown
+        MovieError.Network -> R.string.movie_detail_error_network
+        MovieError.Server -> R.string.movie_detail_error_server
+        MovieError.RateLimited -> R.string.movie_detail_error_rate_limited
+        MovieError.Unauthorized -> R.string.movie_detail_error_unauthorized
+        MovieError.NotFound -> R.string.movie_detail_error_not_found
+        MovieError.InvalidResponse -> R.string.movie_detail_error_invalid_response
+        MovieError.Unknown -> R.string.movie_detail_error_unknown
     }
     return stringResource(messageRes)
 }

@@ -7,6 +7,8 @@ sealed interface MovieError {
 
     data object RateLimited : MovieError
 
+    data object Unauthorized : MovieError
+
     data object NotFound : MovieError
 
     data object InvalidResponse : MovieError

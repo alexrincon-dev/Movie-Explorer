@@ -9,12 +9,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import dev.alexrincon.movieclient.presentation.moviedetail.MovieDetailScreen
 import dev.alexrincon.movieclient.presentation.movielist.MovieListScreen
+import dev.alexrincon.movieclient.presentation.movielist.rememberMovieGridStates
 
 @Composable
 fun MovieNavHost(
@@ -28,19 +31,25 @@ fun MovieNavHost(
         startDestination = MovieListRoute,
         modifier = modifier.fillMaxSize(),
     ) {
-        composable<MovieListRoute> {
+        composable<MovieListRoute> { entry ->
+            val gridStates = rememberMovieGridStates()
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 if (usesMasterDetailLayout(maxWidth)) {
                     MovieMasterDetail(
                         selectedMovieId = selectedMovieId,
                         onMovieSelected = { movieId -> selectedMovieId = movieId },
+                        gridStates = gridStates,
                     )
                 } else {
                     MovieListScreen(
                         onMovieClick = { movieId ->
-                            selectedMovieId = movieId
-                            navController.navigate(MovieDetailRoute(movieId = movieId))
+                            // Same guard as dropUnlessResumed, which only accepts lambdas without arguments.
+                            if (entry.lifecycle.currentState == Lifecycle.State.RESUMED) {
+                                selectedMovieId = movieId
+                                navController.navigate(MovieDetailRoute(movieId = movieId))
+                            }
                         },
+                        gridStates = gridStates,
                     )
                 }
             }
@@ -55,7 +64,7 @@ fun MovieNavHost(
                     }
                 } else {
                     MovieDetailScreen(
-                        onBack = { navController.popBackStack() },
+                        onBack = dropUnlessResumed { navController.popBackStack() },
                     )
                 }
             }
