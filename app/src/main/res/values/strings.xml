@@ -28,6 +28,7 @@
     <string name="movie_detail_error_not_found">This movie could not be found.</string>
     <string name="movie_detail_error_invalid_response">The details for this movie could not be read.</string>
     <string name="movie_detail_error_unknown">Movie details could not be loaded. Try again.</string>
+    <string name="movie_detail_original_title">Original title</string>
     <string name="movie_detail_overview">Overview</string>
     <string name="movie_detail_overview_missing">No overview available.</string>
     <string name="movie_detail_year">Year</string>

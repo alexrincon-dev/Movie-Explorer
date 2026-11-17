@@ -43,6 +43,7 @@ import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.SubcomposeAsyncImageContent
 import dev.alexrincon.movieclient.R
 import dev.alexrincon.movieclient.domain.model.Movie
+import dev.alexrincon.movieclient.presentation.displayTitle
 import dev.alexrincon.movieclient.domain.model.MovieListType
 
 internal const val MoviePosterAspectRatio = 2f / 3f
@@ -168,7 +169,8 @@ private fun MoviePoster(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val description = stringResource(R.string.movie_poster_content_description, movie.originalTitle)
+    val title = movie.displayTitle()
+    val description = stringResource(R.string.movie_poster_content_description, title)
     val shape = MaterialTheme.shapes.small
     Surface(
         onClick = onClick,
@@ -199,7 +201,7 @@ private fun MoviePoster(
         ) {
             val posterUrl = movie.posterPath
             if (posterUrl.isNullOrBlank()) {
-                PosterFallback(title = movie.originalTitle)
+                PosterFallback(title = title)
             } else {
                 SubcomposeAsyncImage(
                     model = posterUrl,
@@ -209,7 +211,7 @@ private fun MoviePoster(
                 ) {
                     val imageState by painter.state.collectAsState()
                     if (imageState is AsyncImagePainter.State.Error) {
-                        PosterFallback(title = movie.originalTitle)
+                        PosterFallback(title = title)
                     } else {
                         SubcomposeAsyncImageContent()
                     }

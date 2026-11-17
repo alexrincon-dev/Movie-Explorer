@@ -107,6 +107,7 @@ class MovieListViewModel @Inject constructor(
         val language = contentLanguageState.contentLanguage.value ?: return
         val current = uiState.value
         if (loadMoreInFlight || languageChangeInFlight || !current.canLoadMore) return
+        if (current.selectedListType !in listsRefreshed) return
         if (refreshJobs[current.selectedListType]?.isActive == true) return
         loadMoreInFlight = true
         val listType = current.selectedListType
@@ -139,8 +140,9 @@ class MovieListViewModel @Inject constructor(
     }
 
     /**
-     * Refreshes Popular and Top Rated together.
-     * The shared language changes only after both lists refresh successfully.
+     * Stores the selected language before refreshing either list.
+     * The preference and UI language stay on that selection when the refresh fails.
+     * A failed refresh leaves the cached movies in place.
      */
     fun changeContentLanguage(language: MovieContentLanguage) {
         val current = contentLanguageState.contentLanguage.value ?: return
@@ -148,18 +150,19 @@ class MovieListViewModel @Inject constructor(
             return
         }
         languageChangeInFlight = true
+        status.value = status.value.copy(
+            isRefreshing = true,
+            isLoadingMore = false,
+            error = null,
+            isPaginationError = false,
+        )
         viewModelScope.launch {
             try {
+                contentLanguageState.updateContentLanguage(language)
                 refreshJobs.values.toList().forEach { it.cancel() }
                 loadMoreJob?.cancel()
-                status.value = status.value.copy(
-                    isRefreshing = true,
-                    isLoadingMore = false,
-                    error = null,
-                    isPaginationError = false,
-                )
+                listsRefreshed.clear()
                 movieRepository.refreshAllMovies(language)
-                contentLanguageState.updateContentLanguage(language)
                 listsRefreshed.addAll(MovieListType.entries)
                 status.value = idleStatus()
             } catch (cancellation: CancellationException) {

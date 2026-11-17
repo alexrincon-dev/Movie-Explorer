@@ -127,7 +127,7 @@ class MovieListViewModelTest {
     }
 
     @Test
-    fun languageChangeRefreshesBothListsAndPublishesLanguageOnlyAfterSuccess() = runViewModelTest {
+    fun languageChangePersistsImmediatelyAndRefreshesBothListsOnce() = runViewModelTest {
         val cached = listOf(testMovie(4))
         repository.listSnapshots.getValue(MovieListType.POPULAR).value = testSnapshot(cached)
         val viewModel = viewModel()
@@ -140,23 +140,24 @@ class MovieListViewModelTest {
 
         repository.refreshAllGate = CompletableDeferred()
         viewModel.changeContentLanguage(MovieContentLanguage.ES_MX)
+        viewModel.changeContentLanguage(MovieContentLanguage.EN_US)
         viewModel.changeContentLanguage(MovieContentLanguage.ES_MX)
         advanceUntilIdle()
 
         assertEquals(listOf(MovieContentLanguage.ES_MX), repository.refreshAllCalls)
-        assertEquals(MovieContentLanguage.EN_US, languageState.contentLanguage.value)
-        assertEquals(MovieContentLanguage.EN_US, viewModel.uiState.value.contentLanguage)
-        assertTrue(languageStore.writes.isEmpty())
+        assertEquals(MovieContentLanguage.ES_MX, languageState.contentLanguage.value)
+        assertEquals(MovieContentLanguage.ES_MX, viewModel.uiState.value.contentLanguage)
+        assertEquals(listOf(MovieContentLanguage.ES_MX), languageStore.writes)
+        assertEquals(MovieContentLanguage.ES_MX, languageStore.stored)
         assertEquals(cached, viewModel.uiState.value.movies)
         assertTrue(viewModel.uiState.value.isRefreshing)
+        assertNull(viewModel.uiState.value.error)
 
         repository.refreshAllGate?.complete(Unit)
         advanceUntilIdle()
 
         assertEquals(MovieContentLanguage.ES_MX, languageState.contentLanguage.value)
         assertEquals(MovieContentLanguage.ES_MX, viewModel.uiState.value.contentLanguage)
-        assertEquals(listOf(MovieContentLanguage.ES_MX), languageStore.writes)
-        assertEquals(MovieContentLanguage.ES_MX, languageStore.stored)
         assertFalse(viewModel.uiState.value.isRefreshing)
         assertEquals(cached, viewModel.uiState.value.movies)
         assertEquals(refreshesBeforeLanguageChange, repository.refreshCalls.size)
@@ -212,10 +213,15 @@ class MovieListViewModelTest {
     }
 
     @Test
-    fun failedLanguageChangeKeepsThePreviousLanguage() = runViewModelTest {
+    fun failedLanguageChangeKeepsSpanishAndTheCachedMovies() = runViewModelTest {
         val cached = listOf(testMovie(5))
-        repository.listSnapshots.getValue(MovieListType.POPULAR).value = testSnapshot(cached)
+        repository.listSnapshots.getValue(MovieListType.POPULAR).value =
+            testSnapshot(cached, lastLoadedPage = 1, totalPages = 3)
         val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectListType(MovieListType.TOP_RATED)
+        advanceUntilIdle()
+        viewModel.selectListType(MovieListType.POPULAR)
         advanceUntilIdle()
         repository.refreshAllError = MovieException(MovieError.Network)
 
@@ -223,17 +229,71 @@ class MovieListViewModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf(MovieContentLanguage.ES_MX), repository.refreshAllCalls)
-        assertEquals(MovieContentLanguage.EN_US, languageState.contentLanguage.value)
-        assertEquals(MovieContentLanguage.EN_US, viewModel.uiState.value.contentLanguage)
-        assertEquals(MovieContentLanguage.EN_US, languageStore.stored)
-        assertTrue(languageStore.writes.isEmpty())
+        assertEquals(MovieContentLanguage.ES_MX, languageState.contentLanguage.value)
+        assertEquals(MovieContentLanguage.ES_MX, viewModel.uiState.value.contentLanguage)
+        assertEquals(listOf(MovieContentLanguage.ES_MX), languageStore.writes)
+        assertEquals(MovieContentLanguage.ES_MX, languageStore.stored)
         assertEquals(MovieError.Network, viewModel.uiState.value.error)
         assertEquals(cached, viewModel.uiState.value.movies)
         assertFalse(viewModel.uiState.value.isRefreshing)
+        assertFalse(viewModel.uiState.value.isInitialLoading)
 
+        val restored = MovieContentLanguageState(languageStore)
+        assertEquals(MovieContentLanguage.ES_MX, restored.awaitLanguage())
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertTrue(repository.loadMoreCalls.isEmpty())
+
+        viewModel.selectListType(MovieListType.TOP_RATED)
+        advanceUntilIdle()
+        assertEquals(
+            ListRequest(MovieListType.TOP_RATED, MovieContentLanguage.ES_MX),
+            repository.refreshCalls.last(),
+        )
+
+        val localized = listOf(
+            testMovie(5).copy(title = "Película 5", overview = "Sinopsis 5"),
+        )
+        repository.refreshAllError = null
+        repository.listSnapshots.getValue(MovieListType.POPULAR).value = testSnapshot(localized)
+        viewModel.selectListType(MovieListType.POPULAR)
         viewModel.refresh()
         advanceUntilIdle()
-        assertEquals(MovieContentLanguage.EN_US, repository.refreshCalls.last().language)
+
+        assertEquals(MovieContentLanguage.ES_MX, repository.refreshCalls.last().language)
+        assertEquals(localized, viewModel.uiState.value.movies)
+        assertNull(viewModel.uiState.value.error)
+        assertEquals(MovieContentLanguage.ES_MX, languageStore.stored)
+    }
+
+    @Test
+    fun failedLanguageChangeDoesNotLetAnOlderRefreshRevertTheSelection() = runViewModelTest {
+        val cached = listOf(testMovie(8))
+        repository.listSnapshots.getValue(MovieListType.POPULAR).value = testSnapshot(cached)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        repository.refreshGate = CompletableDeferred()
+        viewModel.refresh()
+        advanceUntilIdle()
+        val refreshesWhileOldRequestIsRunning = repository.refreshCalls.size
+
+        repository.refreshAllError = MovieException(MovieError.Network)
+        viewModel.changeContentLanguage(MovieContentLanguage.ES_MX)
+        advanceUntilIdle()
+        repository.refreshGate?.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(MovieContentLanguage.ES_MX, languageState.contentLanguage.value)
+        assertEquals(MovieContentLanguage.ES_MX, languageStore.stored)
+        assertEquals(MovieError.Network, viewModel.uiState.value.error)
+        assertEquals(cached, viewModel.uiState.value.movies)
+        assertEquals(refreshesWhileOldRequestIsRunning, repository.refreshCalls.size)
+        assertTrue(
+            repository.refreshCalls.none { request ->
+                request.language == MovieContentLanguage.ES_MX
+            },
+        )
     }
 
     @Test

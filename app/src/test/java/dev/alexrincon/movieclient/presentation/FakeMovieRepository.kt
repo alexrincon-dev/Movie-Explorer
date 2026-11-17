@@ -92,6 +92,7 @@ internal data class DetailRequest(
 internal fun testMovie(id: Int): Movie {
     return Movie(
         id = id,
+        title = "Movie $id",
         originalTitle = "Movie $id",
         overview = "Overview $id",
         posterPath = null,

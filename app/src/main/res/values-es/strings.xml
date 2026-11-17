@@ -28,6 +28,7 @@
     <string name="movie_detail_error_not_found">No se encontró esta película.</string>
     <string name="movie_detail_error_invalid_response">No se pudieron leer los detalles de esta película.</string>
     <string name="movie_detail_error_unknown">No se pudieron cargar los detalles de la película. Inténtalo de nuevo.</string>
+    <string name="movie_detail_original_title">Título original</string>
     <string name="movie_detail_overview">Sinopsis</string>
     <string name="movie_detail_overview_missing">No hay sinopsis disponible.</string>
     <string name="movie_detail_year">Año</string>

@@ -10,6 +10,7 @@ import dagger.hilt.components.SingletonComponent
 import dev.alexrincon.movieclient.data.local.dao.MovieDao
 import dev.alexrincon.movieclient.data.local.dao.MovieListDao
 import dev.alexrincon.movieclient.data.local.dao.MovieListPaginationDao
+import dev.alexrincon.movieclient.data.local.database.MIGRATION_1_2
 import dev.alexrincon.movieclient.data.local.database.MovieDatabase
 import javax.inject.Singleton
 
@@ -25,7 +26,9 @@ object DatabaseModule {
             context,
             MovieDatabase::class.java,
             DATABASE_NAME,
-        ).build()
+        )
+            .addMigrations(MIGRATION_1_2)
+            .build()
     }
 
     @Provides

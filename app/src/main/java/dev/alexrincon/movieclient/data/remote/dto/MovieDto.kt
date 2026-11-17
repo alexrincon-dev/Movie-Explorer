@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class MovieDto(
     val id: Int,
+    @SerialName("title") val title: String = "",
     @SerialName("original_title") val originalTitle: String = "",
     val overview: String = "",
     @SerialName("poster_path") val posterPath: String? = null,

@@ -11,7 +11,9 @@ import dev.alexrincon.movieclient.domain.model.MovieContentLanguage
  * - A missing poster, backdrop, or release date keeps the cached non-null value.
  * - A blank overview keeps a non-empty cached overview only when the language is unchanged.
  * - A language change stores the incoming overview, including an empty one, and that language tag.
- * - A blank original title keeps the cached title.
+ * - A blank localized title keeps a non-empty cached title only when the language is unchanged.
+ * - A language change stores the incoming localized title, including an empty one.
+ * - A blank original title keeps the cached original title and is never replaced by the localized title.
  * - A non-null voteAverage wins, including 0.0. A missing rating keeps the cached rating.
  * Room receives relative image paths. Domain movies receive Coil URLs.
  */
@@ -28,6 +30,14 @@ internal fun MovieDto.toEntity(
         !cachedOverview.isNullOrBlank() -> cachedOverview
         else -> incomingOverview
     }
+    val incomingTitle = title.trim()
+    val cachedTitle = existing?.title
+    val storedTitle = when {
+        languageChanged -> incomingTitle
+        incomingTitle.isNotEmpty() -> incomingTitle
+        !cachedTitle.isNullOrBlank() -> cachedTitle
+        else -> incomingTitle
+    }
     return MovieEntity(
         id = id,
         originalTitle = originalTitle.trim().ifEmpty { existing?.originalTitle.orEmpty() },
@@ -37,12 +47,14 @@ internal fun MovieDto.toEntity(
         releaseDate = releaseDate?.trim()?.takeIf { it.isNotEmpty() } ?: existing?.releaseDate,
         voteAverage = voteAverage ?: existing?.voteAverage ?: 0.0,
         contentLanguage = language,
+        title = storedTitle,
     )
 }
 
 internal fun MovieEntity.toMovie(imageUrls: TmdbImageUrlBuilder): Movie {
     return Movie(
         id = id,
+        title = title,
         originalTitle = originalTitle,
         overview = overview,
         posterPath = imageUrls.posterUrl(posterPath),

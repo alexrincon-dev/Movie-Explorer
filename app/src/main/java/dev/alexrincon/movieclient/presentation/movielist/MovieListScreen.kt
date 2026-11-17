@@ -85,7 +85,7 @@ fun MovieListScreen(
 }
 
 @Composable
-private fun MovieListContent(
+internal fun MovieListContent(
     uiState: MovieListUiState,
     gridStates: MovieGridStates,
     onMovieClick: (movieId: Int) -> Unit,
@@ -531,6 +531,7 @@ private fun previewMovies(): List<Movie> {
     return List(6) { index ->
         Movie(
             id = index + 1,
+            title = "Movie ${index + 1}",
             originalTitle = "Movie ${index + 1}",
             overview = "",
             posterPath = null,

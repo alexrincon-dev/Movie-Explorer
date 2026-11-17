@@ -137,6 +137,7 @@ class MovieRepositoryImplTest {
                     releaseDate = "2020-01-01",
                     voteAverage = 8.0,
                     contentLanguage = MovieContentLanguage.EN_US,
+                    title = "Localized",
                 ),
             ),
         )
@@ -156,6 +157,8 @@ class MovieRepositoryImplTest {
         val stored = database.movieDao().getById(1)
         assertEquals("poster.jpg", stored?.posterPath)
         assertEquals("Detailed overview", stored?.overview)
+        assertEquals("Localized", stored?.title)
+        assertEquals("Title", stored?.originalTitle)
     }
 
     @Test
@@ -226,8 +229,59 @@ class MovieRepositoryImplTest {
 
         val stored = database.movieDao().getById(1)
         assertEquals("", stored?.overview)
+        assertEquals("", stored?.title)
+        assertEquals("Title", stored?.originalTitle)
         assertEquals("poster.jpg", stored?.posterPath)
         assertEquals(MovieContentLanguage.ES_MX, stored?.contentLanguage)
+    }
+
+    @Test
+    fun refreshMovieDetail_languageChangeReplacesLocalizedTitleAndOverview() = runBlocking {
+        seedPopular(MovieContentLanguage.EN_US)
+        remote.details[1] = MovieDto(
+            id = 1,
+            title = "La otra madre",
+            originalTitle = "Other Mommy",
+            overview = "Sinopsis en español",
+            posterPath = null,
+        )
+
+        repository.refreshMovieDetail(1, MovieContentLanguage.ES_MX)
+
+        val stored = database.movieDao().getById(1)
+        assertEquals("La otra madre", stored?.title)
+        assertEquals("Other Mommy", stored?.originalTitle)
+        assertEquals("Sinopsis en español", stored?.overview)
+        assertEquals("poster.jpg", stored?.posterPath)
+        assertEquals(MovieContentLanguage.ES_MX, stored?.contentLanguage)
+        val domain = repository.observeMovie(1).first()
+        assertEquals("La otra madre", domain?.title)
+        assertEquals("Other Mommy", domain?.originalTitle)
+        assertEquals("Sinopsis en español", domain?.overview)
+    }
+
+    @Test
+    fun refreshMovies_blankLocalizedTitleKeepsTheCachedTitle() = runBlocking {
+        seedPopular(MovieContentLanguage.EN_US)
+        remote.pages[MovieListType.POPULAR to 1] = page(
+            totalPages = 1,
+            movies = listOf(
+                MovieDto(
+                    id = 1,
+                    title = " ",
+                    originalTitle = "",
+                    overview = "Still cached",
+                    posterPath = null,
+                ),
+            ),
+        )
+
+        repository.refreshMovies(MovieListType.POPULAR, MovieContentLanguage.EN_US)
+
+        val stored = database.movieDao().getById(1)
+        assertEquals("Cached title", stored?.title)
+        assertEquals("Title", stored?.originalTitle)
+        assertEquals("Still cached", stored?.overview)
     }
 
     @Test
@@ -239,11 +293,117 @@ class MovieRepositoryImplTest {
         repository.refreshAllMovies(MovieContentLanguage.ES_MX)
 
         assertEquals("Hola", database.movieDao().getById(1)?.overview)
+        assertEquals("Popular", database.movieDao().getById(1)?.title)
+        assertEquals("Popular", database.movieDao().getById(1)?.originalTitle)
         assertEquals(MovieContentLanguage.ES_MX, database.movieDao().getById(1)?.contentLanguage)
         assertEquals(MovieContentLanguage.ES_MX, database.movieDao().getById(2)?.contentLanguage)
         assertEquals(listOf(1), database.movieListDao().movieIds(MovieListType.POPULAR))
         assertEquals(listOf(2), database.movieListDao().movieIds(MovieListType.TOP_RATED))
         assertEquals(4, database.movieListPaginationDao().get(MovieListType.TOP_RATED)?.totalPages)
+    }
+
+    @Test
+    fun refreshAllMovies_failureKeepsCachedTextAndALaterSuccessReplacesIt() = runBlocking {
+        seedPopular(MovieContentLanguage.EN_US)
+        remote.pages[MovieListType.POPULAR to 1] = page(
+            totalPages = 1,
+            movies = listOf(movie(1, "No debe guardarse", overview = "Nuevo", originalTitle = "Other Mommy")),
+        )
+        remote.failures[MovieListType.TOP_RATED] = IOException("offline")
+
+        try {
+            repository.refreshAllMovies(MovieContentLanguage.ES_MX)
+            fail()
+        } catch (exception: MovieException) {
+            assertEquals(MovieError.Network, exception.error)
+        }
+
+        val unchanged = database.movieDao().getById(1)
+        assertEquals("Cached title", unchanged?.title)
+        assertEquals("Title", unchanged?.originalTitle)
+        assertEquals("Cached", unchanged?.overview)
+        assertEquals(MovieContentLanguage.EN_US, unchanged?.contentLanguage)
+        assertEquals("poster.jpg", unchanged?.posterPath)
+
+        remote.failures.remove(MovieListType.TOP_RATED)
+        remote.pages[MovieListType.POPULAR to 1] = page(
+            totalPages = 1,
+            movies = listOf(
+                movie(1, "La otra madre", overview = "Sinopsis", originalTitle = "Other Mommy"),
+            ),
+        )
+        remote.pages[MovieListType.TOP_RATED to 1] = page(
+            totalPages = 1,
+            movies = listOf(movie(2, "Otra", overview = "También")),
+        )
+
+        repository.refreshAllMovies(MovieContentLanguage.ES_MX)
+
+        val stored = database.movieDao().getById(1)
+        assertEquals("La otra madre", stored?.title)
+        assertEquals("Other Mommy", stored?.originalTitle)
+        assertEquals("Sinopsis", stored?.overview)
+        assertEquals(MovieContentLanguage.ES_MX, stored?.contentLanguage)
+        assertEquals("poster.jpg", stored?.posterPath)
+    }
+
+    @Test
+    fun failedLanguageRefreshDoesNotLetAnOlderRequestOverwriteNewerLanguageData() = runBlocking {
+        seedPopular(MovieContentLanguage.EN_US)
+        remote.details[1] = MovieDto(
+            id = 1,
+            title = "Stale English title",
+            originalTitle = "Title",
+            overview = "Stale English",
+            posterPath = "/poster.jpg",
+            voteAverage = 8.0,
+        )
+        val detailStarted = CompletableDeferred<Unit>()
+        val releaseDetail = CompletableDeferred<Unit>()
+        remote.beforeDetail = {
+            detailStarted.complete(Unit)
+            releaseDetail.await()
+        }
+        val detail = async(Dispatchers.IO) {
+            repository.refreshMovieDetail(1, MovieContentLanguage.EN_US)
+        }
+        detailStarted.await()
+
+        remote.pages[MovieListType.POPULAR to 1] = page(
+            totalPages = 1,
+            movies = listOf(movie(1, "No debe guardarse", overview = "Nuevo")),
+        )
+        remote.failures[MovieListType.TOP_RATED] = IOException("offline")
+        try {
+            repository.refreshAllMovies(MovieContentLanguage.ES_MX)
+            fail()
+        } catch (exception: MovieException) {
+            assertEquals(MovieError.Network, exception.error)
+        }
+        assertEquals("Cached", database.movieDao().getById(1)?.overview)
+        assertEquals("Cached title", database.movieDao().getById(1)?.title)
+
+        remote.failures.remove(MovieListType.TOP_RATED)
+        remote.pages[MovieListType.POPULAR to 1] = page(
+            totalPages = 1,
+            movies = listOf(
+                movie(1, "La otra madre", overview = "Sinopsis", originalTitle = "Other Mommy"),
+            ),
+        )
+        remote.pages[MovieListType.TOP_RATED to 1] = page(
+            totalPages = 1,
+            movies = listOf(movie(2, "Otra", overview = "También")),
+        )
+        repository.refreshAllMovies(MovieContentLanguage.ES_MX)
+
+        releaseDetail.complete(Unit)
+        detail.await()
+
+        val stored = database.movieDao().getById(1)
+        assertEquals("La otra madre", stored?.title)
+        assertEquals("Other Mommy", stored?.originalTitle)
+        assertEquals("Sinopsis", stored?.overview)
+        assertEquals(MovieContentLanguage.ES_MX, stored?.contentLanguage)
     }
 
     @Test
@@ -473,6 +633,7 @@ class MovieRepositoryImplTest {
                     releaseDate = "2020-01-01",
                     voteAverage = 8.0,
                     contentLanguage = language,
+                    title = "Cached title",
                 ),
             ),
         )
@@ -498,10 +659,12 @@ class MovieRepositoryImplTest {
         title: String,
         posterPath: String? = "/poster.jpg",
         overview: String = title,
+        originalTitle: String = title,
     ): MovieDto {
         return MovieDto(
             id = id,
-            originalTitle = title,
+            title = title,
+            originalTitle = originalTitle,
             overview = overview,
             posterPath = posterPath,
             voteAverage = 7.0,

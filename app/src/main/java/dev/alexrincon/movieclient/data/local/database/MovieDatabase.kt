@@ -16,7 +16,7 @@ import dev.alexrincon.movieclient.data.local.entity.MovieListPaginationEntity
         MovieListEntity::class,
         MovieListPaginationEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(MovieTypeConverters::class)

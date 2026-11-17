@@ -25,6 +25,7 @@ class MovieGridStatesTest {
     private val movies = List(100) { index ->
         Movie(
             id = index + 1,
+            title = "Movie ${index + 1}",
             originalTitle = "Movie ${index + 1}",
             overview = "",
             posterPath = null,

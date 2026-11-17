@@ -56,6 +56,8 @@ import coil3.compose.SubcomposeAsyncImageContent
 import dev.alexrincon.movieclient.R
 import dev.alexrincon.movieclient.domain.error.MovieError
 import dev.alexrincon.movieclient.domain.model.Movie
+import dev.alexrincon.movieclient.presentation.displayTitle
+import dev.alexrincon.movieclient.presentation.distinctOriginalTitle
 import dev.alexrincon.movieclient.presentation.movielist.MoviePosterAspectRatio
 import dev.alexrincon.movieclient.ui.theme.MovieClientTheme
 
@@ -77,7 +79,7 @@ fun MovieDetailScreen(
 }
 
 @Composable
-private fun MovieDetailContent(
+internal fun MovieDetailContent(
     uiState: MovieDetailUiState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
@@ -189,19 +191,36 @@ private fun MovieDetailBody(
             )
         }
         Text(
-            text = movie.originalTitle,
+            text = movie.displayTitle(),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 16.dp, top = 16.dp),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.primary,
         )
+        val originalTitle = movie.distinctOriginalTitle()
+        if (originalTitle != null) {
+            Text(
+                text = stringResource(R.string.movie_detail_original_title),
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = originalTitle,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
         Row(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             DetailPoster(
-                title = movie.originalTitle,
+                title = movie.displayTitle(),
                 posterUrl = movie.posterPath,
                 modifier = Modifier.width(124.dp),
             )
@@ -492,6 +511,7 @@ private fun previewMovie(
 ): Movie {
     return Movie(
         id = 1,
+        title = "Inception",
         originalTitle = "Inception",
         overview = overview,
         posterPath = posterPath,

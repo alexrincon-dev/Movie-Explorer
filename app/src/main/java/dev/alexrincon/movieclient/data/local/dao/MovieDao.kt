@@ -19,7 +19,8 @@ interface MovieDao {
             movies.backdropPath,
             movies.releaseDate,
             movies.voteAverage,
-            movies.contentLanguage
+            movies.contentLanguage,
+            movies.title
         FROM movies
         INNER JOIN movie_lists ON movies.id = movie_lists.movieId
         WHERE movie_lists.listType = :listType

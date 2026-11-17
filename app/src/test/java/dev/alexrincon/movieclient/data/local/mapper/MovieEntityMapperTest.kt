@@ -1,5 +1,6 @@
 package dev.alexrincon.movieclient.data.local.mapper
 
+import dev.alexrincon.movieclient.data.image.TmdbImageUrlBuilder
 import dev.alexrincon.movieclient.data.local.entity.MovieEntity
 import dev.alexrincon.movieclient.data.remote.dto.MovieDto
 import dev.alexrincon.movieclient.domain.model.MovieContentLanguage
@@ -13,6 +14,7 @@ class MovieEntityMapperTest {
     fun toEntity_keepsRelativePathsAndOmitsBlanks() {
         val entity = MovieDto(
             id = 1,
+            title = "Localized",
             originalTitle = "Title",
             overview = "Overview",
             posterPath = "/poster.jpg",
@@ -21,6 +23,8 @@ class MovieEntityMapperTest {
             voteAverage = 7.5,
         ).toEntity(MovieContentLanguage.EN_US)
 
+        assertEquals("Localized", entity.title)
+        assertEquals("Title", entity.originalTitle)
         assertEquals("poster.jpg", entity.posterPath)
         assertNull(entity.backdropPath)
         assertNull(entity.releaseDate)
@@ -32,6 +36,7 @@ class MovieEntityMapperTest {
         val existing = cachedMovie()
         val entity = MovieDto(
             id = 1,
+            title = " ",
             originalTitle = "",
             overview = " ",
             posterPath = null,
@@ -40,6 +45,7 @@ class MovieEntityMapperTest {
             voteAverage = 1.0,
         ).toEntity(MovieContentLanguage.EN_US, existing)
 
+        assertEquals("Cached localized", entity.title)
         assertEquals("Cached title", entity.originalTitle)
         assertEquals("Cached overview", entity.overview)
         assertEquals("poster.jpg", entity.posterPath)
@@ -57,9 +63,48 @@ class MovieEntityMapperTest {
             posterPath = null,
         ).toEntity(MovieContentLanguage.ES_MX, cachedMovie())
 
+        assertEquals("", entity.title)
+        assertEquals("Cached title", entity.originalTitle)
         assertEquals("", entity.overview)
         assertEquals("poster.jpg", entity.posterPath)
         assertEquals(MovieContentLanguage.ES_MX, entity.contentLanguage)
+    }
+
+    @Test
+    fun toEntity_incomingLocalizedTitleReplacesCachedTitle() {
+        val entity = MovieDto(
+            id = 1,
+            title = "Updated title",
+            originalTitle = "",
+            overview = "Updated overview",
+        ).toEntity(MovieContentLanguage.EN_US, cachedMovie())
+
+        assertEquals("Updated title", entity.title)
+        assertEquals("Cached title", entity.originalTitle)
+        assertEquals("Updated overview", entity.overview)
+    }
+
+    @Test
+    fun toEntity_doesNotCopyLocalizedTitleIntoOriginalTitle() {
+        val entity = MovieDto(
+            id = 1,
+            title = "La otra madre",
+            originalTitle = " ",
+        ).toEntity(MovieContentLanguage.ES_MX, cachedMovie())
+
+        assertEquals("La otra madre", entity.title)
+        assertEquals("Cached title", entity.originalTitle)
+    }
+
+    @Test
+    fun toMovie_restoresBothTitlesAndImageUrls() {
+        val movie = cachedMovie().toMovie(TmdbImageUrlBuilder())
+
+        assertEquals("Cached localized", movie.title)
+        assertEquals("Cached title", movie.originalTitle)
+        assertEquals("Cached overview", movie.overview)
+        assertEquals("https://image.tmdb.org/t/p/w500/poster.jpg", movie.posterPath)
+        assertEquals("https://image.tmdb.org/t/p/w780/backdrop.jpg", movie.backdropPath)
     }
 
     @Test
@@ -92,6 +137,8 @@ class MovieEntityMapperTest {
         val missing = json.decodeFromString<MovieDto>("""{"id":1,"original_title":"Title"}""")
         val explicitZero = json.decodeFromString<MovieDto>("""{"id":1,"vote_average":0.0}""")
 
+        assertEquals("", missing.title)
+        assertEquals("Title", missing.originalTitle)
         assertNull(missing.voteAverage)
         assertEquals(0.0, explicitZero.voteAverage)
         assertEquals(
@@ -116,6 +163,7 @@ class MovieEntityMapperTest {
             releaseDate = "2020-01-01",
             voteAverage = 8.0,
             contentLanguage = MovieContentLanguage.EN_US,
+            title = "Cached localized",
         )
     }
 }

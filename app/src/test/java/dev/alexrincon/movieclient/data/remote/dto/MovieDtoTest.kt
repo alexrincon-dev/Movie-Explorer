@@ -21,6 +21,7 @@ class MovieDtoTest {
               "results": [
                 {
                   "id": 7,
+                  "title": "Localized",
                   "original_title": "Original",
                   "overview": null,
                   "poster_path": "/poster.jpg",
@@ -40,6 +41,7 @@ class MovieDtoTest {
         assertEquals(10, page.totalPages)
         assertEquals(200, page.totalResults)
         assertEquals(7, movie.id)
+        assertEquals("Localized", movie.title)
         assertEquals("Original", movie.originalTitle)
         assertEquals("", movie.overview)
         assertEquals("/poster.jpg", movie.posterPath)

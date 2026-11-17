@@ -12,9 +12,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * TMDB content language for the whole app.
- * This is not the Android UI locale. The value is null until the persisted
- * language has been read, and a change is stored only when [updateContentLanguage] is called.
+ * Selected language for movie text and in-app UI strings.
+ * The value is null until the persisted language has been read.
+ * A change is stored only when [updateContentLanguage] is called.
  */
 @Singleton
 class MovieContentLanguageState @Inject constructor(

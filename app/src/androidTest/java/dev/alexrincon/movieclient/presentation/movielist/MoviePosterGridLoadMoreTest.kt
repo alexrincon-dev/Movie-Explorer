@@ -111,6 +111,7 @@ class MoviePosterGridLoadMoreTest {
     private fun poster(id: Int): Movie {
         return Movie(
             id = id,
+            title = "Movie $id",
             originalTitle = "Movie $id",
             overview = "",
             posterPath = null,
