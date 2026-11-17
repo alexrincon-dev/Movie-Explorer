@@ -18,8 +18,8 @@ import dev.alexrincon.movieclient.domain.model.MovieListSnapshot
 import dev.alexrincon.movieclient.domain.model.MovieListType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -463,10 +463,11 @@ class MovieRepositoryImplTest {
         assertEquals(listOf(2), database.movieListDao().movieIds(MovieListType.TOP_RATED))
         assertEquals(1, popularEntries.get())
 
-        val second = async(Dispatchers.IO) {
+        // Runs on this thread until its first suspension, which is the Popular lock held by `first`.
+        val second = async(start = CoroutineStart.UNDISPATCHED) {
             repository.refreshMovies(MovieListType.POPULAR, MovieContentLanguage.EN_US)
         }
-        delay(300)
+        assertTrue(second.isActive)
         assertEquals(1, popularEntries.get())
         releasePopular.complete(Unit)
         first.await()

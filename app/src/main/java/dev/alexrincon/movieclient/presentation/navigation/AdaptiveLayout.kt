@@ -9,7 +9,16 @@ import androidx.compose.ui.unit.dp
  */
 val MasterDetailMinWidth: Dp = 840.dp
 
-fun usesMasterDetailLayout(maxWidth: Dp): Boolean = maxWidth >= MasterDetailMinWidth
+/**
+ * Medium window height from the Android window size classes.
+ * A phone in landscape can be wider than [MasterDetailMinWidth] but stays below this height,
+ * so it keeps phone navigation and an open detail survives rotation.
+ */
+val MasterDetailMinHeight: Dp = 480.dp
+
+fun usesMasterDetailLayout(maxWidth: Dp, maxHeight: Dp): Boolean {
+    return maxWidth >= MasterDetailMinWidth && maxHeight >= MasterDetailMinHeight
+}
 
 /**
  * Movie shown for one list.

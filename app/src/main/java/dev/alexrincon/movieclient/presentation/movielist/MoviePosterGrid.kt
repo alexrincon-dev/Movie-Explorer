@@ -63,9 +63,51 @@ internal fun movieGridShouldLoadMore(
     isLoadingMore: Boolean,
     isRefreshing: Boolean,
 ): Boolean {
-    if (isLoadingMore || isRefreshing || movieCount <= 0) return false
-    if (lastVisibleIndex == null || totalItems <= 0) return false
+    if (isLoadingMore || isRefreshing) return false
+    return movieGridIsNearEnd(lastVisibleIndex, totalItems, movieCount)
+}
+
+/** True when the last visible row is within [LoadMorePrefetchItems] of the end, ignoring loading state. */
+internal fun movieGridIsNearEnd(
+    lastVisibleIndex: Int?,
+    totalItems: Int,
+    movieCount: Int,
+): Boolean {
+    if (movieCount <= 0 || lastVisibleIndex == null || totalItems <= 0) return false
     return lastVisibleIndex >= totalItems - LoadMorePrefetchItems
+}
+
+internal data class MovieGridLoadMoreSignal(
+    val isNearEnd: Boolean,
+    val shouldLoadMore: Boolean,
+    val paginationFailed: Boolean,
+)
+
+/**
+ * Decides whether a [MovieGridLoadMoreSignal] requests the next page.
+ * After a failed page, the grid does not request it again on its own, even when loading ends
+ * while the grid is still at the end. The user must tap Retry, which does not go through this
+ * trigger, or scroll out of the prefetch window and back.
+ * Each scroll out and back allows one request, so the trigger does not depend on the ViewModel
+ * updating its state before the next signal.
+ * A successful page or a refresh clears the failure and restores automatic pagination.
+ */
+internal class MovieGridLoadMoreTrigger {
+    private var retryArmed = false
+
+    fun shouldRequest(signal: MovieGridLoadMoreSignal): Boolean {
+        if (!signal.paginationFailed) {
+            retryArmed = false
+            return signal.shouldLoadMore
+        }
+        if (!signal.isNearEnd) {
+            retryArmed = true
+            return false
+        }
+        if (!signal.shouldLoadMore || !retryArmed) return false
+        retryArmed = false
+        return true
+    }
 }
 
 /**
@@ -98,25 +140,37 @@ internal fun MoviePosterGrid(
     onMovieClick: (movieId: Int) -> Unit,
     onLoadMore: () -> Unit,
     isRefreshing: Boolean = false,
+    paginationFailed: Boolean = false,
     selectedMovieId: Int? = null,
     modifier: Modifier = Modifier,
 ) {
     val movieCount = rememberUpdatedState(movies.size)
     val loadingMore = rememberUpdatedState(isLoadingMore)
     val refreshing = rememberUpdatedState(isRefreshing)
+    val failed = rememberUpdatedState(paginationFailed)
     val loadMoreRequest = rememberUpdatedState(onLoadMore)
     LaunchedEffect(gridState) {
+        val trigger = MovieGridLoadMoreTrigger()
         snapshotFlow {
             val layoutInfo = gridState.layoutInfo
-            movieGridShouldLoadMore(
-                lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index,
-                totalItems = layoutInfo.totalItemsCount,
-                movieCount = movieCount.value,
-                isLoadingMore = loadingMore.value,
-                isRefreshing = refreshing.value,
+            val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index
+            MovieGridLoadMoreSignal(
+                isNearEnd = movieGridIsNearEnd(
+                    lastVisibleIndex = lastVisibleIndex,
+                    totalItems = layoutInfo.totalItemsCount,
+                    movieCount = movieCount.value,
+                ),
+                shouldLoadMore = movieGridShouldLoadMore(
+                    lastVisibleIndex = lastVisibleIndex,
+                    totalItems = layoutInfo.totalItemsCount,
+                    movieCount = movieCount.value,
+                    isLoadingMore = loadingMore.value,
+                    isRefreshing = refreshing.value,
+                ),
+                paginationFailed = failed.value,
             )
-        }.collect { shouldLoadMore ->
-            if (shouldLoadMore) loadMoreRequest.value()
+        }.collect { signal ->
+            if (trigger.shouldRequest(signal)) loadMoreRequest.value()
         }
     }
 

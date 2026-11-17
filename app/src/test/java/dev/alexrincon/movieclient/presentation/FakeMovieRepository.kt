@@ -5,6 +5,7 @@ import dev.alexrincon.movieclient.domain.model.MovieContentLanguage
 import dev.alexrincon.movieclient.domain.model.MovieListSnapshot
 import dev.alexrincon.movieclient.domain.model.MovieListType
 import dev.alexrincon.movieclient.domain.repository.MovieRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,10 @@ internal class FakeMovieRepository : MovieRepository {
     var loadMoreError: Throwable? = null
     var refreshAllError: Throwable? = null
     var detailError: Throwable? = null
+
+    /** Runs before [detailGate] and [detailError], so a test can answer each request differently. */
+    var detailResponse: (suspend (DetailRequest) -> Unit)? = null
+    val cancelledDetailRequests = mutableListOf<DetailRequest>()
 
     override fun observeMovies(listType: MovieListType): Flow<MovieListSnapshot> {
         val upstream = listSnapshots.getValue(listType)
@@ -73,9 +78,16 @@ internal class FakeMovieRepository : MovieRepository {
         movieId: Int,
         language: MovieContentLanguage,
     ) {
-        detailRefreshCalls += DetailRequest(movieId, language)
-        detailGate?.await()
-        detailError?.let { throw it }
+        val request = DetailRequest(movieId, language)
+        detailRefreshCalls += request
+        try {
+            detailResponse?.invoke(request)
+            detailGate?.await()
+            detailError?.let { throw it }
+        } catch (cancellation: CancellationException) {
+            cancelledDetailRequests += request
+            throw cancellation
+        }
     }
 }
 

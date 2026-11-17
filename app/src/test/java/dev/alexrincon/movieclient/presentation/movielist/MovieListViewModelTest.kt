@@ -16,6 +16,7 @@ import dev.alexrincon.movieclient.presentation.language.MovieContentLanguageStat
 import dev.alexrincon.movieclient.presentation.runViewModelTest
 import dev.alexrincon.movieclient.presentation.testMovie
 import dev.alexrincon.movieclient.presentation.testSnapshot
+import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -348,6 +349,62 @@ class MovieListViewModelTest {
     }
 
     @Test
+    fun slowPageFailureEndsLoadingAndRetryRequestsTheFailedPageOnce() = runViewModelTest {
+        val cached = listOf(testMovie(6))
+        repository.listSnapshots.getValue(MovieListType.POPULAR).value =
+            testSnapshot(cached, lastLoadedPage = 1, totalPages = 4)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        repository.loadMoreGate = CompletableDeferred()
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isLoadingMore)
+        assertFalse(viewModel.uiState.value.isPaginationError)
+
+        repository.loadMoreError = MovieException(MovieError.RateLimited)
+        repository.loadMoreGate?.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, repository.loadMoreCalls.size)
+        assertFalse(viewModel.uiState.value.isLoadingMore)
+        assertTrue(viewModel.uiState.value.isPaginationError)
+        assertTrue(viewModel.uiState.value.retriesFailedPage)
+
+        repository.loadMoreGate = CompletableDeferred()
+        viewModel.loadMore()
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertEquals(2, repository.loadMoreCalls.size)
+        assertTrue(viewModel.uiState.value.isLoadingMore)
+        assertFalse(viewModel.uiState.value.isPaginationError)
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun loadMoreStopsOnceTheLastPageIsCached() = runViewModelTest {
+        val snapshots = repository.listSnapshots.getValue(MovieListType.POPULAR)
+        snapshots.value = testSnapshot(listOf(testMovie(1)), lastLoadedPage = 1, totalPages = 2)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+        snapshots.value = testSnapshot(
+            listOf(testMovie(1), testMovie(2)),
+            lastLoadedPage = 2,
+            totalPages = 2,
+        )
+        advanceUntilIdle()
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertEquals(1, repository.loadMoreCalls.size)
+        assertFalse(viewModel.uiState.value.canLoadMore)
+    }
+
+    @Test
     fun initialLoadFailureRetriesAsRefresh() = runViewModelTest {
         repository.refreshError = MovieException(MovieError.Network)
         val viewModel = viewModel()
@@ -402,6 +459,79 @@ class MovieListViewModelTest {
 
         assertNull(viewModel.uiState.value.error)
         assertEquals(listOf(testMovie(7)), viewModel.uiState.value.movies)
+    }
+
+    @Test
+    fun languageSaveFailureKeepsTheLanguageAndShowsAnError() = runViewModelTest {
+        val cached = listOf(testMovie(4))
+        repository.listSnapshots.getValue(MovieListType.POPULAR).value = testSnapshot(cached)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val refreshesBeforeLanguageChange = repository.refreshCalls.size
+        languageStore.writeError = IOException("disk full")
+
+        viewModel.changeContentLanguage(MovieContentLanguage.ES_MX)
+        advanceUntilIdle()
+
+        assertEquals(MovieContentLanguage.EN_US, languageState.contentLanguage.value)
+        assertEquals(MovieContentLanguage.EN_US, viewModel.uiState.value.contentLanguage)
+        assertEquals(MovieContentLanguage.EN_US, languageStore.stored)
+        assertTrue(languageStore.writes.isEmpty())
+        assertTrue(repository.refreshAllCalls.isEmpty())
+        assertEquals(refreshesBeforeLanguageChange, repository.refreshCalls.size)
+        assertEquals(MovieError.Unknown, viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.isPaginationError)
+        assertFalse(viewModel.uiState.value.isRefreshing)
+        assertEquals(cached, viewModel.uiState.value.movies)
+    }
+
+    @Test
+    fun afterALanguageSaveFailureRefreshAndLanguageChangeStillWork() = runViewModelTest {
+        repository.listSnapshots.getValue(MovieListType.POPULAR).value =
+            testSnapshot(listOf(testMovie(4)))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        languageStore.writeError = IOException("disk full")
+        viewModel.changeContentLanguage(MovieContentLanguage.ES_MX)
+        advanceUntilIdle()
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(
+            ListRequest(MovieListType.POPULAR, MovieContentLanguage.EN_US),
+            repository.refreshCalls.last(),
+        )
+        assertNull(viewModel.uiState.value.error)
+
+        languageStore.writeError = null
+        viewModel.changeContentLanguage(MovieContentLanguage.ES_MX)
+        advanceUntilIdle()
+
+        assertEquals(listOf(MovieContentLanguage.ES_MX), languageStore.writes)
+        assertEquals(listOf(MovieContentLanguage.ES_MX), repository.refreshAllCalls)
+        assertEquals(MovieContentLanguage.ES_MX, viewModel.uiState.value.contentLanguage)
+        assertNull(viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.isRefreshing)
+    }
+
+    @Test
+    fun cancelledLanguageSaveDoesNotBecomeAnError() = runViewModelTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        languageStore.writeGate = CompletableDeferred()
+
+        viewModel.changeContentLanguage(MovieContentLanguage.ES_MX)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isRefreshing)
+
+        viewModel.viewModelScope.cancel()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.error)
+        assertEquals(MovieContentLanguage.EN_US, languageState.contentLanguage.value)
+        assertTrue(languageStore.writes.isEmpty())
+        assertTrue(repository.refreshAllCalls.isEmpty())
     }
 
     private fun viewModel(): MovieListViewModel {

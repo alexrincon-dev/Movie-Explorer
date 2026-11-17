@@ -12,6 +12,7 @@ import dev.alexrincon.movieclient.domain.repository.MovieRepository
 import dev.alexrincon.movieclient.domain.usecase.LoadMoreMoviesUseCase
 import dev.alexrincon.movieclient.domain.usecase.RefreshMoviesUseCase
 import dev.alexrincon.movieclient.presentation.language.MovieContentLanguageState
+import java.io.IOException
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -143,6 +144,8 @@ class MovieListViewModel @Inject constructor(
      * Stores the selected language before refreshing either list.
      * The preference and UI language stay on that selection when the refresh fails.
      * A failed refresh leaves the cached movies in place.
+     * When the language cannot be saved, the language does not change, no refresh starts,
+     * and the list shows [MovieError.Unknown].
      */
     fun changeContentLanguage(language: MovieContentLanguage) {
         val current = contentLanguageState.contentLanguage.value ?: return
@@ -172,6 +175,13 @@ class MovieListViewModel @Inject constructor(
                     isInitialLoading = false,
                     isRefreshing = false,
                     error = exception.error,
+                    isPaginationError = false,
+                )
+            } catch (_: IOException) {
+                status.value = status.value.copy(
+                    isInitialLoading = false,
+                    isRefreshing = false,
+                    error = MovieError.Unknown,
                     isPaginationError = false,
                 )
             } finally {

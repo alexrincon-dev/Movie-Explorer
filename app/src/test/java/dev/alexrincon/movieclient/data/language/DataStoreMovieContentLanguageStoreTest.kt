@@ -8,8 +8,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.io.File
+import java.io.IOException
 
 class DataStoreMovieContentLanguageStoreTest {
     @Test
@@ -56,6 +58,21 @@ class DataStoreMovieContentLanguageStoreTest {
         }
 
         assertEquals(MovieContentLanguage.EN_US, store.read())
+    }
+
+    @Test
+    fun writeThrowsIOExceptionWhenTheFileCannotBeCreated() {
+        val blockingFile = File(System.getProperty("java.io.tmpdir"), "movie-language-${System.nanoTime()}")
+        blockingFile.writeText("not a directory")
+        val dataStore = PreferenceDataStoreFactory.create(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+            produceFile = { File(blockingFile, "movie_content_language.preferences_pb") },
+        )
+        val store = DataStoreMovieContentLanguageStore(dataStore)
+
+        assertThrows(IOException::class.java) {
+            runBlocking { store.write(MovieContentLanguage.ES_MX) }
+        }
     }
 
     private fun newStore(): DataStoreMovieContentLanguageStore {

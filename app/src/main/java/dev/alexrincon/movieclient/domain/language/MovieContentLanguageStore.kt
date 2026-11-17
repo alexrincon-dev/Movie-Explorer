@@ -9,5 +9,6 @@ import dev.alexrincon.movieclient.domain.model.MovieContentLanguage
 interface MovieContentLanguageStore {
     suspend fun read(): MovieContentLanguage
 
+    /** Throws [java.io.IOException] when the language cannot be saved. */
     suspend fun write(language: MovieContentLanguage)
 }

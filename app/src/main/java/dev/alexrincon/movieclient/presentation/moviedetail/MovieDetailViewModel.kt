@@ -67,6 +67,7 @@ class MovieDetailViewModel @Inject constructor(
                 if (movieId == null) return@collectLatest
                 contentLanguageState.awaitLanguage()
                 contentLanguageState.contentLanguage.filterNotNull().collectLatest { language ->
+                    retryJob?.cancel()
                     refreshDetail(movieId, language)
                 }
             }
@@ -99,18 +100,30 @@ class MovieDetailViewModel @Inject constructor(
         }
     }
 
+    /**
+     * A result is published only while its movie and language are still selected,
+     * so an older request cannot replace the state of a newer one.
+     */
     private suspend fun refreshDetail(movieId: Int, language: MovieContentLanguage) {
         loading.value = true
         error.value = null
         try {
             movieRepository.refreshMovieDetail(movieId, language)
-            loading.value = false
+            if (isCurrentRequest(movieId, language)) {
+                loading.value = false
+            }
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (exception: MovieException) {
-            loading.value = false
-            error.value = exception.error
+            if (isCurrentRequest(movieId, language)) {
+                loading.value = false
+                error.value = exception.error
+            }
         }
+    }
+
+    private fun isCurrentRequest(movieId: Int, language: MovieContentLanguage): Boolean {
+        return movieIdState.value == movieId && contentLanguageState.contentLanguage.value == language
     }
 }
 

@@ -5,6 +5,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -94,6 +96,34 @@ class MovieDetailLocalizationTest {
         composeRule.runOnIdle { phase = DetailPhase.Loading }
         composeRule.onNodeWithContentDescription("Cargando película").assertIsDisplayed()
         assertEquals(systemLocale, systemLocaleSnapshot())
+    }
+
+    @Test
+    fun detailTitleIsTheOnlyHeadingAndUsesTheLocalizedTitle() {
+        var language by mutableStateOf(MovieContentLanguage.EN_US)
+        var movie by mutableStateOf(differentTitles())
+        composeRule.setContent {
+            MovieClientTheme {
+                ProvideMovieContentLanguage(language) {
+                    MovieDetailContent(
+                        uiState = MovieDetailUiState(movie = movie, isLoading = false),
+                        onBack = {},
+                        onRetry = {},
+                    )
+                }
+            }
+        }
+
+        composeRule.onAllNodes(isHeading()).assertCountEquals(1)
+        composeRule.onNode(isHeading()).assertTextEquals("The Other Mother")
+
+        composeRule.runOnIdle {
+            language = MovieContentLanguage.ES_MX
+            movie = movie(title = "La otra madre", originalTitle = "Other Mommy")
+        }
+        composeRule.onAllNodes(isHeading()).assertCountEquals(1)
+        composeRule.onNode(isHeading()).assertTextEquals("La otra madre")
+        composeRule.onNodeWithText("Other Mommy", substring = false).assertIsDisplayed()
     }
 
     private fun systemLocaleSnapshot(): String {

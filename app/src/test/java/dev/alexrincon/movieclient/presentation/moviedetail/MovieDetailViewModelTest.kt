@@ -3,6 +3,7 @@
 package dev.alexrincon.movieclient.presentation.moviedetail
 
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.viewModelScope
 import dev.alexrincon.movieclient.domain.error.MovieError
 import dev.alexrincon.movieclient.domain.error.MovieException
 import dev.alexrincon.movieclient.domain.model.MovieContentLanguage
@@ -13,8 +14,11 @@ import dev.alexrincon.movieclient.presentation.language.MovieContentLanguageStat
 import dev.alexrincon.movieclient.presentation.runViewModelTest
 import dev.alexrincon.movieclient.presentation.testMovie
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -215,6 +219,173 @@ class MovieDetailViewModelTest {
             DetailRequest(movieId = 9, language = MovieContentLanguage.ES_MX),
             repository.detailRefreshCalls.last(),
         )
+    }
+
+    @Test
+    fun retryThatFinishesBeforeALanguageChangeIsFollowedByTheNewLanguage() = runViewModelTest {
+        repository.detailError = MovieException(MovieError.Network)
+        val viewModel = viewModel(movieId = 5)
+        advanceUntilIdle()
+        repository.detailError = null
+
+        viewModel.retry()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.error)
+
+        languageState.updateContentLanguage(MovieContentLanguage.ES_MX)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                DetailRequest(movieId = 5, language = MovieContentLanguage.EN_US),
+                DetailRequest(movieId = 5, language = MovieContentLanguage.EN_US),
+                DetailRequest(movieId = 5, language = MovieContentLanguage.ES_MX),
+            ),
+            repository.detailRefreshCalls,
+        )
+        assertTrue(repository.cancelledDetailRequests.isEmpty())
+        assertNull(viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun languageChangeCancelsARetryInProgress() = runViewModelTest {
+        repository.detailError = MovieException(MovieError.Network)
+        val viewModel = viewModel(movieId = 5)
+        advanceUntilIdle()
+        repository.detailError = null
+        val englishRetry = CompletableDeferred<Unit>()
+        repository.detailResponse = { request ->
+            if (request.language == MovieContentLanguage.EN_US) englishRetry.await()
+        }
+
+        viewModel.retry()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isLoading)
+
+        languageState.updateContentLanguage(MovieContentLanguage.ES_MX)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(DetailRequest(movieId = 5, language = MovieContentLanguage.EN_US)),
+            repository.cancelledDetailRequests,
+        )
+        assertEquals(
+            DetailRequest(movieId = 5, language = MovieContentLanguage.ES_MX),
+            repository.detailRefreshCalls.last(),
+        )
+        assertNull(viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.isLoading)
+
+        englishRetry.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(3, repository.detailRefreshCalls.size)
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun staleResponseAfterALanguageChangeIsNotPublished() = runViewModelTest {
+        repository.detailError = MovieException(MovieError.Network)
+        val viewModel = viewModel(movieId = 5)
+        advanceUntilIdle()
+        repository.detailError = null
+        val englishResponse = CompletableDeferred<Unit>()
+        val spanishResponse = CompletableDeferred<Unit>()
+        repository.detailResponse = { request ->
+            if (request.language == MovieContentLanguage.EN_US) {
+                withContext(NonCancellable) { englishResponse.await() }
+                throw MovieException(MovieError.Server)
+            }
+            spanishResponse.await()
+        }
+
+        viewModel.retry()
+        advanceUntilIdle()
+        languageState.updateContentLanguage(MovieContentLanguage.ES_MX)
+        advanceUntilIdle()
+
+        englishResponse.complete(Unit)
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.error)
+        assertTrue(viewModel.uiState.value.isLoading)
+
+        spanishResponse.complete(Unit)
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun failedRetryIsFollowedByASuccessfulRetryInTheNewLanguage() = runViewModelTest {
+        repository.detailError = MovieException(MovieError.Network)
+        val viewModel = viewModel(movieId = 5)
+        advanceUntilIdle()
+
+        repository.detailError = MovieException(MovieError.Server)
+        viewModel.retry()
+        advanceUntilIdle()
+        assertEquals(MovieError.Server, viewModel.uiState.value.error)
+
+        repository.detailError = MovieException(MovieError.Network)
+        languageState.updateContentLanguage(MovieContentLanguage.ES_MX)
+        advanceUntilIdle()
+        assertEquals(MovieError.Network, viewModel.uiState.value.error)
+
+        repository.detailError = null
+        viewModel.retry()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                DetailRequest(movieId = 5, language = MovieContentLanguage.EN_US),
+                DetailRequest(movieId = 5, language = MovieContentLanguage.EN_US),
+                DetailRequest(movieId = 5, language = MovieContentLanguage.ES_MX),
+                DetailRequest(movieId = 5, language = MovieContentLanguage.ES_MX),
+            ),
+            repository.detailRefreshCalls,
+        )
+        assertNull(viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun retryIsCancelledWithTheViewModelOrTheSelection() = runViewModelTest {
+        repository.detailError = MovieException(MovieError.Network)
+        val viewModel = viewModel(movieId = 5)
+        advanceUntilIdle()
+        repository.detailError = null
+        repository.detailGate = CompletableDeferred()
+
+        viewModel.retry()
+        advanceUntilIdle()
+        viewModel.clearSelectedMovie()
+        advanceUntilIdle()
+        assertEquals(
+            listOf(DetailRequest(movieId = 5, language = MovieContentLanguage.EN_US)),
+            repository.cancelledDetailRequests,
+        )
+        assertNull(viewModel.uiState.value.error)
+
+        viewModel.selectMovie(6)
+        advanceUntilIdle()
+        viewModel.retry()
+        advanceUntilIdle()
+        viewModel.viewModelScope.cancel()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                DetailRequest(movieId = 5, language = MovieContentLanguage.EN_US),
+                DetailRequest(movieId = 6, language = MovieContentLanguage.EN_US),
+                DetailRequest(movieId = 6, language = MovieContentLanguage.EN_US),
+            ),
+            repository.cancelledDetailRequests,
+        )
+        assertNull(viewModel.uiState.value.error)
+
+        repository.detailGate?.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(4, repository.detailRefreshCalls.size)
     }
 
     private fun viewModel(movieId: Int): MovieDetailViewModel {

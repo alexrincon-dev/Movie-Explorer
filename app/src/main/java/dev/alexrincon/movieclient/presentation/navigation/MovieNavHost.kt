@@ -35,7 +35,7 @@ fun MovieNavHost(
         composable<MovieListRoute> { entry ->
             val gridStates = rememberMovieGridStates()
             BoxWithConstraints(Modifier.fillMaxSize()) {
-                if (usesMasterDetailLayout(maxWidth)) {
+                if (usesMasterDetailLayout(maxWidth, maxHeight)) {
                     MovieMasterDetail(
                         selections = selections,
                         handoffMovieId = handoffMovieId,
@@ -59,7 +59,7 @@ fun MovieNavHost(
         composable<MovieDetailRoute> { entry ->
             val movieId = entry.toRoute<MovieDetailRoute>().movieId
             BoxWithConstraints(Modifier.fillMaxSize()) {
-                if (usesMasterDetailLayout(maxWidth)) {
+                if (usesMasterDetailLayout(maxWidth, maxHeight)) {
                     LaunchedEffect(movieId) {
                         handoffMovieId = movieId
                         navController.popBackStack()

@@ -45,6 +45,10 @@ class MovieContentLanguageState @Inject constructor(
         }
     }
 
+    /**
+     * Saves [language], then publishes it.
+     * When saving throws, the published language does not change.
+     */
     suspend fun updateContentLanguage(language: MovieContentLanguage) {
         loadMutex.withLock {
             store.write(language)

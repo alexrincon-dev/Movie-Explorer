@@ -5,10 +5,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -123,6 +126,42 @@ class MovieContentLanguageUiTest {
         composeRule.onNodeWithText("Popular", substring = false).assertDoesNotExist()
         composeRule.onNodeWithContentDescription("Idioma del contenido: Español").assertIsDisplayed()
         assertEquals(systemLocale, systemLocaleSnapshot())
+    }
+
+    @Test
+    fun languageMenuExposesTheSelectedLanguageAndUpdatesIt() {
+        var language by mutableStateOf(MovieContentLanguage.EN_US)
+        val selections = mutableListOf<MovieContentLanguage>()
+        composeRule.setContent {
+            MovieClientTheme {
+                ProvideMovieContentLanguage(language) {
+                    MovieListContent(
+                        uiState = listState(language, ListPhase.Empty),
+                        gridStates = rememberMovieGridStates(),
+                        onMovieClick = {},
+                        onListTypeSelected = {},
+                        onRefresh = {},
+                        onLoadMore = {},
+                        onLanguageSelected = { selected ->
+                            selections += selected
+                            language = selected
+                        },
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("Content language: English").performClick()
+        composeRule.onNodeWithText("English", substring = false).assertIsSelected()
+        composeRule.onNodeWithText("Spanish", substring = false).assertIsNotSelected()
+
+        composeRule.onNodeWithText("Spanish", substring = false).performClick()
+        composeRule.runOnIdle { assertEquals(listOf(MovieContentLanguage.ES_MX), selections) }
+        composeRule.onNodeWithText("Spanish", substring = false).assertDoesNotExist()
+
+        composeRule.onNodeWithContentDescription("Idioma del contenido: Español").performClick()
+        composeRule.onNodeWithText("Español", substring = false).assertIsSelected()
+        composeRule.onNodeWithText("Inglés", substring = false).assertIsNotSelected()
     }
 
     private fun systemLocaleSnapshot(): String {
