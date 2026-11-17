@@ -64,7 +64,7 @@ private val movieListTypes = listOf(
 
 @Composable
 fun MovieListScreen(
-    onMovieClick: (movieId: Int) -> Unit,
+    onMovieClick: (listType: MovieListType, movieId: Int) -> Unit,
     gridStates: MovieGridStates,
     modifier: Modifier = Modifier,
     selectedMovieId: Int? = null,
@@ -74,7 +74,7 @@ fun MovieListScreen(
     MovieListContent(
         uiState = uiState,
         gridStates = gridStates,
-        onMovieClick = onMovieClick,
+        onMovieClick = { movieId -> onMovieClick(uiState.selectedListType, movieId) },
         onListTypeSelected = viewModel::selectListType,
         onRefresh = viewModel::refresh,
         onLoadMore = viewModel::loadMore,

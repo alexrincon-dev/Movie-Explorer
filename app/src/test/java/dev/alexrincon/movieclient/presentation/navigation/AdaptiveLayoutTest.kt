@@ -40,9 +40,21 @@ class AdaptiveLayoutTest {
     }
 
     @Test
-    fun emptyListDoesNotResetTheSelection() {
-        assertEquals(8, resolveSelectedMovieId(selectedMovieId = 8, movieIds = emptyList()))
+    fun settledEmptyListClearsTheSelection() {
+        assertEquals(null, resolveSelectedMovieId(selectedMovieId = 8, movieIds = emptyList()))
         assertEquals(null, resolveSelectedMovieId(selectedMovieId = null, movieIds = emptyList()))
+    }
+
+    @Test
+    fun loadingEmptyListKeepsTheSelection() {
+        assertEquals(
+            8,
+            resolveSelectedMovieId(
+                selectedMovieId = 8,
+                movieIds = emptyList(),
+                keepSelectionWhenEmpty = true,
+            ),
+        )
     }
 
     @Test

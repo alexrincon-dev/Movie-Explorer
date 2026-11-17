@@ -24,7 +24,8 @@ fun MovieNavHost(
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
-    var selectedMovieId by rememberSaveable { mutableStateOf<Int?>(null) }
+    val selections = rememberMovieListSelections()
+    var handoffMovieId by rememberSaveable { mutableStateOf<Int?>(null) }
 
     NavHost(
         navController = navController,
@@ -36,16 +37,17 @@ fun MovieNavHost(
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 if (usesMasterDetailLayout(maxWidth)) {
                     MovieMasterDetail(
-                        selectedMovieId = selectedMovieId,
-                        onMovieSelected = { movieId -> selectedMovieId = movieId },
+                        selections = selections,
+                        handoffMovieId = handoffMovieId,
+                        onHandoffConsumed = { handoffMovieId = null },
                         gridStates = gridStates,
                     )
                 } else {
                     MovieListScreen(
-                        onMovieClick = { movieId ->
+                        onMovieClick = { listType, movieId ->
                             // Same guard as dropUnlessResumed, which only accepts lambdas without arguments.
                             if (entry.lifecycle.currentState == Lifecycle.State.RESUMED) {
-                                selectedMovieId = movieId
+                                selections.select(listType, movieId)
                                 navController.navigate(MovieDetailRoute(movieId = movieId))
                             }
                         },
@@ -59,7 +61,7 @@ fun MovieNavHost(
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 if (usesMasterDetailLayout(maxWidth)) {
                     LaunchedEffect(movieId) {
-                        selectedMovieId = movieId
+                        handoffMovieId = movieId
                         navController.popBackStack()
                     }
                 } else {

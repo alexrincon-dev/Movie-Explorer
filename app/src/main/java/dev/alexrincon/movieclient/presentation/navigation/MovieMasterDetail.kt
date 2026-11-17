@@ -11,6 +11,7 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,24 +29,37 @@ import dev.alexrincon.movieclient.presentation.movielist.MovieListViewModel
 
 @Composable
 internal fun MovieMasterDetail(
-    selectedMovieId: Int?,
-    onMovieSelected: (Int) -> Unit,
+    selections: MovieListSelections,
+    handoffMovieId: Int?,
+    onHandoffConsumed: () -> Unit,
     gridStates: MovieGridStates,
     modifier: Modifier = Modifier,
     listViewModel: MovieListViewModel = hiltViewModel(),
     detailViewModel: MovieDetailViewModel = hiltViewModel(),
 ) {
     val listState by listViewModel.uiState.collectAsStateWithLifecycle()
+    val listType = listState.selectedListType
     val movieIds = listState.movies.map { movie -> movie.id }
-    val displayedMovieId = resolveSelectedMovieId(selectedMovieId, movieIds)
-    LaunchedEffect(displayedMovieId, movieIds.isEmpty()) {
-        if (movieIds.isNotEmpty() && displayedMovieId != null && displayedMovieId != selectedMovieId) {
-            onMovieSelected(displayedMovieId)
+    val storedId = selections.selectedId(listType)
+    val requestedId = storedId ?: handoffMovieId
+    val keepSelectionWhenEmpty = movieIds.isEmpty() &&
+        (listState.isInitialLoading || listState.isRefreshing)
+    val displayedMovieId = resolveSelectedMovieId(
+        selectedMovieId = requestedId,
+        movieIds = movieIds,
+        keepSelectionWhenEmpty = keepSelectionWhenEmpty,
+    )
+    SideEffect {
+        if (selections.selectedId(listType) != displayedMovieId) {
+            selections.select(listType, displayedMovieId)
         }
+        if (handoffMovieId != null) onHandoffConsumed()
     }
-    LaunchedEffect(displayedMovieId, movieIds.isEmpty()) {
+    LaunchedEffect(listType, displayedMovieId, movieIds.isEmpty(), keepSelectionWhenEmpty) {
         if (movieIds.isNotEmpty() && displayedMovieId != null) {
             detailViewModel.selectMovie(displayedMovieId)
+        } else if (movieIds.isEmpty() && !keepSelectionWhenEmpty) {
+            detailViewModel.clearSelectedMovie()
         }
     }
     DisposableEffect(detailViewModel) {
@@ -54,7 +68,9 @@ internal fun MovieMasterDetail(
 
     Row(modifier = modifier.fillMaxSize()) {
         MovieListScreen(
-            onMovieClick = onMovieSelected,
+            onMovieClick = { clickedList, movieId ->
+                selections.select(clickedList, movieId)
+            },
             gridStates = gridStates,
             selectedMovieId = displayedMovieId,
             viewModel = listViewModel,

@@ -165,6 +165,36 @@ class MovieDetailViewModelTest {
     }
 
     @Test
+    fun switchingListSelectionsObservesEachMovieAndSkipsAnUnchangedId() = runViewModelTest {
+        val viewModel = viewModel(movieId = 1)
+        advanceUntilIdle()
+        viewModel.clearSelectedMovie()
+        advanceUntilIdle()
+
+        viewModel.selectMovie(42)
+        advanceUntilIdle()
+        viewModel.selectMovie(77)
+        advanceUntilIdle()
+        viewModel.selectMovie(42)
+        advanceUntilIdle()
+        val refreshesAfterReturn = repository.detailRefreshCalls.size
+        viewModel.selectMovie(42)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                DetailRequest(movieId = 1, language = MovieContentLanguage.EN_US),
+                DetailRequest(movieId = 42, language = MovieContentLanguage.EN_US),
+                DetailRequest(movieId = 77, language = MovieContentLanguage.EN_US),
+                DetailRequest(movieId = 42, language = MovieContentLanguage.EN_US),
+            ),
+            repository.detailRefreshCalls,
+        )
+        assertEquals(refreshesAfterReturn, repository.detailRefreshCalls.size)
+        assertEquals(listOf(1, 42, 77, 42), repository.observedMovieIds)
+    }
+
+    @Test
     fun clearSelectedMovieStopsLanguageRefreshUntilAnotherMovieIsSelected() = runViewModelTest {
         val viewModel = viewModel(movieId = 6)
         advanceUntilIdle()
